@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
+import { Publica } from '../src/auth/decoradores.js';
 import { ErroApi } from '../src/comum/erro-api.js';
 import { ValidacaoZod } from '../src/comum/validacao-zod.pipe.js';
 import { configTeste, criarApp, ORIGEM_WEB } from './apoio.js';
@@ -12,6 +13,7 @@ import { configTeste, criarApp, ORIGEM_WEB } from './apoio.js';
 const CorpoTeste = z.object({ mes: MesSchema });
 
 /** Rotas só para os testes, montadas junto com a aplicação real. */
+@Publica()
 @Controller('teste')
 class TesteController {
   @Get('erro-api')

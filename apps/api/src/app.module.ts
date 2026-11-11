@@ -6,9 +6,12 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 
+import { AuthGuard } from './auth/auth.guard.js';
+import { AuthModule } from './auth/auth.module.js';
 import { FiltroErros } from './comum/filtro-erros.js';
 import { LimiteEscritaGuard } from './comum/limite-escrita.guard.js';
 import { CONFIG, type Config } from './config/config.js';
+import { PoliticasModule } from './politicas/politicas.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SaudeModule } from './saude/saude.module.js';
 
@@ -69,10 +72,14 @@ export class AppModule {
           { name: 'escrita', ttl: 60_000, limit: config.LIMITE_ESCRITA_POR_MINUTO },
         ]),
         PrismaModule,
+        PoliticasModule,
+        AuthModule,
         SaudeModule,
       ],
       providers: [
+        // Ordem: limite de taxa antes do login (barra excesso sem consultar o banco).
         { provide: APP_GUARD, useClass: LimiteEscritaGuard },
+        { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_FILTER, useClass: FiltroErros },
       ],
     };

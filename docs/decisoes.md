@@ -235,3 +235,26 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - Diferença encontrada nos testes: `ON DELETE RESTRICT` responde SQLSTATE **`23503`** (foreign_key_violation) no 17, e `23001` (restrict_violation) no 18. O teste passou a esperar o código do 17. Quando a API traduzir erros do banco, tratar `23503` como "registro em uso".
 
 **Consequências.** Desenvolvimento, testes e produção na mesma versão major; backups `pg_dump` compatíveis. Quem já tinha o volume do 18 precisa recriá-lo (`docker compose down -v` e `pnpm db:subir`), apagando o banco local.
+
+## ADR-013 — Autenticação (Entra ID), modo DEV e serviço de políticas
+
+- **Data:** 11/11/2026
+- **Status:** Aceita
+- **Passo:** P09
+
+**Contexto.** O P09 pede validação do JWT do Entra ID, modo DEV com trava de produção, provisionamento no primeiro acesso, `GET /me`, `PoliticasService` e o decorator `@Perfis(...)`. Alguns pontos não estão fixados na especificação.
+
+**Decisão.**
+
+- **`jose` 6.2.17** (seção 3), sem dependências próprias.
+- **Guard global** (`AuthGuard`, depois do limite de taxa): toda rota exige login (especificação 10). Exceções explícitas: `@Publica()` (só a saúde) e `@PermiteInativo()` (só `GET /me`). `@Perfis(...)` é decidido por `PoliticasService.temPerfil`.
+- **Validação do token**: RS256 pelo JWKS do tenant (`createRemoteJWKSet`, cache do jose, prazo de 5 s), emissor `https://login.microsoftonline.com/{tenant}/v2.0`, audiência, expiração com 60 s de tolerância de relógio. Exige `exp`, `oid` e `scp`: sem `scp` é token de aplicação ou ID token, que não servem para chamar a API. Falha ao buscar as chaves vira 500 (logado), não 401.
+- **Audiência como lista** (`ENTRA_API_AUDIENCE`, separada por vírgula): em tokens v2 o `aud` é o ID do aplicativo (GUID), não o URI `api://metas`. Aceitar os dois evita depender de como o registro foi configurado; confirmar na homologação (P10).
+- **Primeiro acesso**: procura pelo `oid`; senão, por um usuário pré-cadastrado pelo e-mail e ainda sem `oid` (é o caso do Administrador do seed e dos usuários cadastrados no P11), que é ligado ao `oid`; senão, cria como **Leitor inativo** (RF-02). Ligação e criação vão para a `auditoria` (`VINCULAR_ENTRA_ID`, `CRIAR_NO_PRIMEIRO_ACESSO`). E-mail vem de `email` ou `preferred_username`, em minúsculas. E-mail já ligado a outro `oid` ou token sem e-mail: 403, e só o Administrador resolve. Logins simultâneos não duplicam o usuário.
+- **Usuário inativo** acessa só `GET /me` (confirmado pelo desenvolvedor); o resto responde 403 `SEM_PERMISSAO` com `detalhes.motivo = USUARIO_INATIVO`. Token expirado: 401 com `detalhes.motivo = TOKEN_EXPIRADO`, para a web renovar o login.
+- **`GET /me`** devolve usuário, `todosOsSetores` (Admin e Diretoria) e setores: do Gestor, os que ele responde no ciclo ATIVO; do Leitor, os liberados. Schema `SessaoSchema` em `@metas/tipos`. As **pendências** (especificação 10.1) entram com os lançamentos (P18/P20).
+- **Modo DEV**: só com `NODE_ENV=development` (a API não inicia com `AUTH_DEV=true` em `test` nem em `production`); `AUTH_DEV_EMAIL` obrigatório; o usuário simulado precisa existir no banco; o cabeçalho `X-Usuario-Dev` troca o usuário (liberado no CORS só nesse modo); aviso no log ao iniciar.
+- **`PoliticasService` com funções puras**: quem chama carrega os dados do recurso (`MetaParaAcesso`, `VariavelParaLancamento`). Regras: cadastros, metas e carga histórica só Admin; ver meta conforme 7.5, e a **submeta é visível a quem vê a meta-mãe** (confirmado pelo desenvolvedor); histórico: Admin e Diretoria todos, Gestor das próprias, Leitor não; `podeLancar` só o Gestor responsável pelo lançamento (`responsavelPeloLancamento`: no Corporativo, o da variável; nos outros setores, o do setor no ciclo). Trava do mês e reabertura ficam no P18. Usuário inativo não pode nada.
+- **Testes da API** usam o banco de testes real com tokens assinados por uma chave gerada no teste (JWKS local, sem rede). Os dados criados são marcados (e-mail `@api-teste.local`, setores `TAPI_*`, ciclos 2097/2098) e apagados antes e depois; para apagar a auditoria, a limpeza desliga o trigger de somente inclusão só dentro da sua transação, com o dono do esquema, só no banco `_teste`. A API passa a aplicar as migrações no banco de testes no `globalSetup`, como o `@metas/prisma`.
+
+**Consequências.** O `.env` local precisa de `AUTH_DEV=true` (com `AUTH_DEV_EMAIL` cadastrado) ou das variáveis do Entra ID para a API subir. O cadastro de usuários (P11) pré-cadastra pelo e-mail, sem `oid`.

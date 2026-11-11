@@ -33,6 +33,7 @@
     "@nestjs/swagger": "catalog:",
     "@nestjs/throttler": "catalog:",
     "helmet": "catalog:",
+    "jose": "catalog:",
     "nestjs-pino": "catalog:",
     "pino": "catalog:",
     "pino-http": "catalog:",

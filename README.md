@@ -41,6 +41,12 @@ Com o `pnpm dev` no ar:
 
 Mudou algo em `packages/` ou `prisma/`? Reinicie o `pnpm dev` para a API usar o novo build. A web entra no P10.
 
+### Login em desenvolvimento
+
+Sem um tenant do Entra ID, use o **modo DEV** no `.env`: `AUTH_DEV=true` e `AUTH_DEV_EMAIL` com o e-mail de um usuário cadastrado (o Administrador do seed serve). A API então não pede token e entra como esse usuário; para simular outro, envie o cabeçalho `X-Usuario-Dev: <e-mail>`. O modo DEV só funciona com `NODE_ENV=development`: em qualquer outro ambiente a API não inicia.
+
+Com o Entra ID, preencha `ENTRA_TENANT_ID` e `ENTRA_API_AUDIENCE` e deixe `AUTH_DEV=false`. No primeiro login, quem não foi pré-cadastrado entra como Leitor inativo e só vê a própria sessão (`GET /api/v1/me`) até o Administrador ativá-lo.
+
 ### Banco de dados
 
 O `docker-compose.yml` sobe um PostgreSQL só para desenvolvimento, com dois usuários:

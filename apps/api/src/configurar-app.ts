@@ -3,6 +3,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
+import { CABECALHO_USUARIO_DEV } from './auth/auth.guard.js';
 import type { Config } from './config/config.js';
 
 export const PREFIXO_API = 'api/v1';
@@ -12,7 +13,13 @@ export const PREFIXO_API = 'api/v1';
  * logger pino, prefixo /api/v1, proxy confiável, helmet, CORS restrito e OpenAPI fora de produção.
  */
 export function configurarApp(app: NestExpressApplication, config: Config): void {
-  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+  app.useLogger(logger);
+  if (config.AUTH_DEV) {
+    logger.warn(
+      'Modo DEV de autenticação ATIVO: o token do Entra ID não é validado. Só para desenvolvimento.',
+    );
+  }
   app.setGlobalPrefix(PREFIXO_API);
 
   // O IIS (ARR) fica na mesma máquina: confia só no proxy local para ler o IP real do cliente.
@@ -27,7 +34,13 @@ export function configurarApp(app: NestExpressApplication, config: Config): void
     // Lista: o cabeçalho Access-Control-Allow-Origin só sai para a origem permitida.
     origin: [config.WEB_ORIGIN],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'X-Request-Id',
+      // Modo DEV: a web escolhe o usuário simulado.
+      ...(config.AUTH_DEV ? [CABECALHO_USUARIO_DEV] : []),
+    ],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 600,
   });

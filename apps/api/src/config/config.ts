@@ -4,8 +4,9 @@ import { z } from 'zod';
 export const CONFIG = Symbol('CONFIG');
 
 /** Texto vazio no .env (`VAR=`) conta como ausente. */
-const texto = () =>
-  z.preprocess((valor) => (valor === '' ? undefined : valor), z.string({ error: 'obrigatória' }));
+const vazioComoAusente = (valor: unknown) => (valor === '' ? undefined : valor);
+const texto = () => z.preprocess(vazioComoAusente, z.string({ error: 'obrigatória' }));
+const textoOpcional = () => z.preprocess(vazioComoAusente, z.string().optional());
 
 const ConfigSchema = z.object({
   NODE_ENV: z.preprocess(
@@ -37,9 +38,61 @@ const ConfigSchema = z.object({
     .int({ error: 'deve ser um número inteiro' })
     .positive({ error: 'deve ser maior que zero' })
     .default(120),
+  /** Tenant do Entra ID (GUID). Obrigatório fora do modo DEV. */
+  ENTRA_TENANT_ID: textoOpcional().pipe(
+    z.uuid({ error: 'deve ser o GUID do tenant (ID do diretório)' }).optional(),
+  ),
+  /**
+   * Audiências aceitas no token, separadas por vírgula. Tokens v2 trazem em `aud` o ID do
+   * aplicativo (GUID) da API; o URI (`api://metas`) também é aceito.
+   */
+  ENTRA_API_AUDIENCE: textoOpcional().transform((valor) =>
+    (valor ?? '')
+      .split(',')
+      .map((parte) => parte.trim())
+      .filter((parte) => parte !== ''),
+  ),
+  /** Modo DEV de autenticação (CLAUDE.md 6): só com NODE_ENV=development. */
+  AUTH_DEV: z
+    .preprocess(vazioComoAusente, z.enum(['true', 'false'], { error: 'deve ser true ou false' }))
+    .default('false')
+    .transform((valor) => valor === 'true'),
+  /** Usuário simulado no modo DEV (precisa existir no banco). */
+  AUTH_DEV_EMAIL: textoOpcional().pipe(
+    z
+      .email({ error: 'deve ser um e-mail' })
+      .transform((email) => email.toLowerCase())
+      .optional(),
+  ),
 });
 
-export type Config = z.infer<typeof ConfigSchema>;
+const ConfigValidadaSchema = ConfigSchema.superRefine((config, ctx) => {
+  if (config.AUTH_DEV) {
+    if (config.NODE_ENV !== 'development') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_DEV'],
+        message: `AUTH_DEV=true só é permitido com NODE_ENV=development (atual: ${config.NODE_ENV}). A API não inicia assim.`,
+      });
+    }
+    if (config.AUTH_DEV_EMAIL === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_DEV_EMAIL'],
+        message: 'obrigatória com AUTH_DEV=true',
+      });
+    }
+    return;
+  }
+  if (config.ENTRA_TENANT_ID === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['ENTRA_TENANT_ID'], message: 'obrigatória' });
+  }
+  if (config.ENTRA_API_AUDIENCE.length === 0) {
+    ctx.addIssue({ code: 'custom', path: ['ENTRA_API_AUDIENCE'], message: 'obrigatória' });
+  }
+});
+
+export type Config = z.infer<typeof ConfigValidadaSchema>;
 
 /** Erro de configuração: a API não deve iniciar. */
 export class ErroConfiguracao extends Error {
@@ -53,7 +106,7 @@ export class ErroConfiguracao extends Error {
 
 /** Lê e valida as variáveis de ambiente. Lança `ErroConfiguracao` listando todos os problemas. */
 export function carregarConfig(env: Readonly<Record<string, string | undefined>>): Config {
-  const resultado = ConfigSchema.safeParse(env);
+  const resultado = ConfigValidadaSchema.safeParse(env);
   if (!resultado.success) {
     throw new ErroConfiguracao(
       resultado.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),

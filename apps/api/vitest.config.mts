@@ -18,6 +18,7 @@ export default defineConfig({
   },
   test: {
     include: ['test/**/*.test.ts'],
+    globalSetup: ['test/preparar-banco.ts'],
     environment: 'node',
     // Os testes de integração usam o banco de testes real.
     fileParallelism: false,

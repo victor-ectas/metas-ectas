@@ -3,6 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
+import { Publica } from '../auth/decoradores.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 /** Tempo máximo para o banco responder à verificação. */
@@ -24,6 +25,7 @@ export interface Saude {
  * Pública, para o monitoramento e o IIS. A fila (pg-boss) entra no P22.
  */
 @ApiTags('saúde')
+@Publica()
 @Controller('saude')
 export class SaudeController {
   constructor(
