@@ -430,7 +430,7 @@ Cada passo tem objetivo, tarefas e critérios de aceite. Marque `[x]` ao conclui
   - Tarefas: enums da seção 9.1 como `const` + tipos; schemas Zod base (ex.: `MesSchema` 1–12, `DecimalStringSchema`); códigos de erro da seção 5.3.
   - Aceite: importável por `motor`, `api` e `web`; testes dos schemas.
 
-- [ ] **P03 — Motor: parser de fórmulas**
+- [x] **P03 — Motor: parser de fórmulas**
   - Tarefas: tokenizer (números com ponto ou vírgula, identificadores com `SETOR.VAR`, operadores, `;` e `,`); parser descendente recursivo com precedência da 8.1; AST serializável; mensagens de erro em português com posição.
   - Aceite: testes para cada token, precedência, parênteses, unário, funções com 0..N argumentos, `SETOR.VAR`, ambiguidade de vírgula e pelo menos 15 entradas inválidas com a mensagem esperada.
 
@@ -583,6 +583,7 @@ Adicione uma linha ao concluir cada passo. Seja específico sobre desvios e pend
 | --- | --- | --- | --- |
 | 11/11/2026 | P01 | `git init`; pnpm workspaces com `apps/api`, `apps/jobs`, `apps/web`, `packages/motor`, `packages/tipos`; `tsconfig.base.json` estrito; ESLint flat (`strictTypeChecked`, `no-eval`, `no-new-func`) + Prettier; Vitest e um teste trivial por pacote; `.editorconfig`, `.gitattributes`, `.gitignore`, `.nvmrc`, `.env.example`; scripts da 5.6; README; `docs/decisoes.md` com modelo e ADR-001 a 004. `pnpm verify` e `pnpm build` verdes, inclusive numa cópia limpa; `pnpm audit`: 1 moderada, `minimatch <11.0.1` via `eslint` (só desenvolvimento; DoS com padrões glob maliciosos, que não se aplica). | Rever o `minimatch` quando o ESLint atualizar; correção exige mudar de versão major, por isso não forcei `overrides`. TypeScript 6.0.3 em vez do 7 (ADR-002). `pnpm dev` ainda não sobe serviços (vêm no P08/P10). Forma de consumo de `motor`/`tipos` pela api/web fica para o P02. |
 | 11/11/2026 | P02 | `@metas/tipos`: 14 enums da 9.1 (`as const` + tipo + schema Zod), `CodigoErro` e `ErroApiSchema` (5.3), `MesSchema`, `MesObjetivoSchema` (0 = único), `DecimalStringSchema` (formato com ponto e limites de `numeric(18,6)`), `UuidSchema`, `PaginacaoSchema` (padrão 50, máx. 200), mensagens em pt-BR. 95 testes no `tipos`; `motor`, `api` e `web` importam o pacote em teste. Consumo via condição `@metas/source` (ADR-005): src no editor/testes, dist no build; testado sem `dist` e com o `dist` carregado no Node por CJS e ESM. | `motor` e `tipos` mudaram para `moduleResolution: NodeNext` (ajuste do ADR-003). Tamanho máximo de página (200) não está na especificação: escolha técnica, fácil de mudar. `pnpm audit`: só o `minimatch` do P01. |
+| 11/11/2026 | P03 | `motor/src/formula`: `ast.ts` (nós serializáveis com `posicao`), `erros.ts` (`FormulaErro`, código `FORMULA_INVALIDA`), `tokenizer.ts` (números com ponto/vírgula, `SETOR.VAR`, operadores, `;`/`,`, normalização para maiúsculas), `parser.ts` (descendente recursivo, precedência da 8.1, funções com 0..N argumentos). 108 testes: cada token, precedência, parênteses, unário, funções, `SETOR.VAR`, ambiguidade da vírgula e 29 entradas inválidas com mensagem e posição, incluindo o exemplo exato da 8.1. Cobertura 100% exigida no `pnpm test` do motor. | Decisões de sintaxe não fixadas na especificação no ADR-006 (ex.: `ARRED(3, 2)` com espaço tem 2 argumentos; limite de 100 níveis de aninhamento). `pnpm audit`: só o `minimatch` do P01. |
 
 ---
 
@@ -597,3 +598,4 @@ Registre aqui (e em `docs/decisoes.md`, com mais detalhe) toda decisão que não
 | 11/11/2026 | `motor`, `tipos`, `web` em ESM; `api` e `jobs` em CommonJS/NodeNext (ADR-003) | Padrão do NestJS; Node 24 tem `require(esm)` |
 | 11/11/2026 | ESLint `strictTypeChecked` + proibição de `eval`/`new Function` (ADR-004) | Regras 2.2 e 5.1 |
 | 11/11/2026 | Pacotes internos com `exports` na condição `@metas/source` (src) e `dist` no build; `motor`/`tipos` em NodeNext; `zod` 4.6.7 (ADR-005) | Código-fonte ao vivo no desenvolvimento, `dist` executável no Node em produção |
+| 11/11/2026 | Detalhes da sintaxe de fórmulas (nomes ASCII, vírgula, sem `+` unário, comparação em cadeia, limite de aninhamento) e cobertura com `@vitest/coverage-v8` 5.1.0 (ADR-006) | Pontos que a 8.1 não fixa |
