@@ -1,2 +1,4 @@
-/** Enums, DTOs e schemas Zod compartilhados. Conteúdo real a partir dos próximos passos do plano. */
-export const NOME_PACOTE = '@metas/tipos';
+/** Enums, DTOs e schemas Zod compartilhados entre motor, api e web. */
+export * from './enums.js';
+export * from './erros.js';
+export * from './schemas.js';

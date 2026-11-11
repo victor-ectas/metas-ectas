@@ -27,6 +27,9 @@ catalogs:
     vitest:
       specifier: 5.1.0
       version: 5.1.0
+    zod:
+      specifier: 4.6.7
+      version: 4.6.7
 
 importers:
 
@@ -49,6 +52,10 @@ importers:
         version: 8.72.2(eslint@10.14.0)(typescript@6.0.3)
 
   apps/api:
+    dependencies:
+      '@metas/tipos':
+        specifier: workspace:*
+        version: link:../../packages/tipos
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -73,6 +80,10 @@ importers:
         version: 5.1.0(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2))
 
   apps/web:
+    dependencies:
+      '@metas/tipos':
+        specifier: workspace:*
+        version: link:../../packages/tipos
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -82,6 +93,10 @@ importers:
         version: 5.1.0(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2))
 
   packages/motor:
+    dependencies:
+      '@metas/tipos':
+        specifier: workspace:*
+        version: link:../tipos
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -91,6 +106,10 @@ importers:
         version: 5.1.0(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2))
 
   packages/tipos:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -914,6 +933,9 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
 snapshots:
 
   '@cacheable/memory@2.2.0':
@@ -1610,3 +1632,5 @@ snapshots:
   word-wrap@1.2.5: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@4.6.7: {}

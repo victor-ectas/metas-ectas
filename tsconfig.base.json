@@ -3,6 +3,9 @@
     "target": "ES2023",
     "lib": ["ES2023"],
     "types": [],
+    // Pacotes do monorepo resolvem para o código-fonte (src) na checagem de tipos e nos testes.
+    // O build (tsconfig.build.json) desliga a condição e usa o dist. Ver ADR-005.
+    "customConditions": ["@metas/source"],
 
     "strict": true,
     "noUncheckedIndexedAccess": true,

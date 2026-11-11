@@ -47,7 +47,7 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 ## ADR-003 — Formato de módulo por pacote
 
 - **Data:** 11/11/2026
-- **Status:** Aceita
+- **Status:** Aceita; resolução de módulos do `motor` e do `tipos` substituída pelo ADR-005
 - **Passo:** P01
 
 **Contexto.** O `motor` e o `tipos` rodam no navegador e no servidor; a `web` usa Vite; a `api` usa NestJS, cujo padrão é CommonJS (decorators e metadados).
@@ -67,3 +67,21 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 **Decisão.** Configuração `strictTypeChecked` com `projectService`, mais `no-eval`, `no-new-func` e `@typescript-eslint/no-implied-eval` como erro. `pnpm lint` roda o ESLint e `prettier --check`. `CLAUDE.md` e `docs/especificacao.md` ficam fora do Prettier, para não reformatar os documentos.
 
 **Consequências.** O lint é mais lento que sem tipos, mas pega `any` implícito, promessas soltas e afins.
+
+## ADR-005 — Consumo dos pacotes internos pela condição `@metas/source`
+
+- **Data:** 11/11/2026
+- **Status:** Aceita
+- **Passo:** P02
+
+**Contexto.** `motor`, `api` e `web` importam `@metas/tipos` (e, mais tarde, `@metas/motor`). No desenvolvimento, a checagem de tipos, o ESLint e os testes devem ver o código-fonte na hora, sem build prévio. Em produção, a `api` e os `jobs` rodam no Node a partir do `dist`, e o Node não executa `.ts` dentro de dependências.
+
+**Decisão.**
+
+- Os pacotes internos declaram `exports` com uma condição própria: `"@metas/source": "./src/index.ts"`, depois `types` e `default` apontando para o `dist`.
+- `tsconfig.base.json` liga `customConditions: ["@metas/source"]`; cada `tsconfig.build.json` desliga (`customConditions: []`), de modo que o build compila contra o `dist` dos pacotes de que depende. `pnpm -r run build` compila na ordem das dependências.
+- O Vitest liga a mesma condição em `resolve.conditions` e `ssr.resolve.conditions`, repetindo as condições padrão do Vite (`module`, `browser`/`node`, `development|production`), porque o `vitest/config` não as exporta.
+- `motor` e `tipos` passam de `moduleResolution: Bundler` para `NodeNext` (ESM). O compilador passa a exigir a extensão `.js` nos imports relativos, e o `dist` roda direto no Node, tanto via `import` (ESM) quanto via `require` (CommonJS da `api`, com o `require(esm)` do Node 24).
+- `zod` 4.6.7 entra no catálogo como dependência de runtime do `tipos`.
+
+**Consequências.** Mudanças no `tipos` aparecem na hora no editor e nos testes dos outros pacotes. Para rodar a `api` compilada (P08), o `tipos` precisa ter sido compilado antes, o que o `pnpm build` já garante. A condição precisa ser repetida no Vite da `web` (P10).

@@ -426,7 +426,7 @@ Cada passo tem objetivo, tarefas e critérios de aceite. Marque `[x]` ao conclui
   - Tarefas: `git init`; pnpm workspaces com `apps/api`, `apps/jobs`, `apps/web`, `packages/motor`, `packages/tipos`; `tsconfig.base.json` estrito; ESLint flat + Prettier; Vitest configurado em cada pacote; `.editorconfig`, `.gitignore` (incluindo `.env`, `node_modules`, `dist`, `coverage`), `.env.example`; scripts raiz da seção 5.6; `README.md` com como rodar; `docs/decisoes.md` vazio com modelo de ADR.
   - Aceite: `pnpm install` e `pnpm verify` passam num repositório limpo; um teste trivial em cada pacote roda.
 
-- [ ] **P02 — Pacote `tipos`**
+- [x] **P02 — Pacote `tipos`**
   - Tarefas: enums da seção 9.1 como `const` + tipos; schemas Zod base (ex.: `MesSchema` 1–12, `DecimalStringSchema`); códigos de erro da seção 5.3.
   - Aceite: importável por `motor`, `api` e `web`; testes dos schemas.
 
@@ -581,7 +581,8 @@ Adicione uma linha ao concluir cada passo. Seja específico sobre desvios e pend
 
 | Data | Passo | Resumo do que foi feito | Desvios ou pendências |
 | --- | --- | --- | --- |
-| 11/11/2026 | P01 | `git init`; pnpm workspaces com `apps/api`, `apps/jobs`, `apps/web`, `packages/motor`, `packages/tipos`; `tsconfig.base.json` estrito; ESLint flat (`strictTypeChecked`, `no-eval`, `no-new-func`) + Prettier; Vitest e um teste trivial por pacote; `.editorconfig`, `.gitattributes`, `.gitignore`, `.nvmrc`, `.env.example`; scripts da 5.6; README; `docs/decisoes.md` com modelo e ADR-001 a 004. `pnpm verify` e `pnpm build` verdes, inclusive numa cópia limpa; `pnpm audit`: 1 moderada, `minimatch <11.0.1` via `eslint` (só desenvolvimento; DoS com padrões glob maliciosos, que não se aplica). | Rever o `minimatch` quando o ESLint atualizar; correção exige mudar de versão major, por isso não forcei `overrides`. TypeScript 6.0.3 em vez do 7 (ADR-002). `pnpm dev` ainda não sobe serviços (vêm no P08/P10). Forma de consumo de `motor`/`tipos` pela api/web fica para o P02. Sem commit ainda. |
+| 11/11/2026 | P01 | `git init`; pnpm workspaces com `apps/api`, `apps/jobs`, `apps/web`, `packages/motor`, `packages/tipos`; `tsconfig.base.json` estrito; ESLint flat (`strictTypeChecked`, `no-eval`, `no-new-func`) + Prettier; Vitest e um teste trivial por pacote; `.editorconfig`, `.gitattributes`, `.gitignore`, `.nvmrc`, `.env.example`; scripts da 5.6; README; `docs/decisoes.md` com modelo e ADR-001 a 004. `pnpm verify` e `pnpm build` verdes, inclusive numa cópia limpa; `pnpm audit`: 1 moderada, `minimatch <11.0.1` via `eslint` (só desenvolvimento; DoS com padrões glob maliciosos, que não se aplica). | Rever o `minimatch` quando o ESLint atualizar; correção exige mudar de versão major, por isso não forcei `overrides`. TypeScript 6.0.3 em vez do 7 (ADR-002). `pnpm dev` ainda não sobe serviços (vêm no P08/P10). Forma de consumo de `motor`/`tipos` pela api/web fica para o P02. |
+| 11/11/2026 | P02 | `@metas/tipos`: 14 enums da 9.1 (`as const` + tipo + schema Zod), `CodigoErro` e `ErroApiSchema` (5.3), `MesSchema`, `MesObjetivoSchema` (0 = único), `DecimalStringSchema` (formato com ponto e limites de `numeric(18,6)`), `UuidSchema`, `PaginacaoSchema` (padrão 50, máx. 200), mensagens em pt-BR. 95 testes no `tipos`; `motor`, `api` e `web` importam o pacote em teste. Consumo via condição `@metas/source` (ADR-005): src no editor/testes, dist no build; testado sem `dist` e com o `dist` carregado no Node por CJS e ESM. | `motor` e `tipos` mudaram para `moduleResolution: NodeNext` (ajuste do ADR-003). Tamanho máximo de página (200) não está na especificação: escolha técnica, fácil de mudar. `pnpm audit`: só o `minimatch` do P01. |
 
 ---
 
@@ -595,3 +596,4 @@ Registre aqui (e em `docs/decisoes.md`, com mais detalhe) toda decisão que não
 | 11/11/2026 | TypeScript 6.0.3 em vez do 7.0 (ADR-002) | `typescript-eslint` só suporta `<6.1.0` |
 | 11/11/2026 | `motor`, `tipos`, `web` em ESM; `api` e `jobs` em CommonJS/NodeNext (ADR-003) | Padrão do NestJS; Node 24 tem `require(esm)` |
 | 11/11/2026 | ESLint `strictTypeChecked` + proibição de `eval`/`new Function` (ADR-004) | Regras 2.2 e 5.1 |
+| 11/11/2026 | Pacotes internos com `exports` na condição `@metas/source` (src) e `dist` no build; `motor`/`tipos` em NodeNext; `zod` 4.6.7 (ADR-005) | Código-fonte ao vivo no desenvolvimento, `dist` executável no Node em produção |
