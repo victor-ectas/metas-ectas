@@ -64,6 +64,5 @@ export const SQLSTATE = {
   CHECK: '23514',
   UNICO: '23505',
   CHAVE_ESTRANGEIRA: '23503',
-  RESTRITO: '23001',
   SEM_PRIVILEGIO: '42501',
 } as const;

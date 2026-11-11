@@ -21,7 +21,7 @@ Aplicação web interna que substitui as planilhas de metas dos gestores: cadast
   corepack enable pnpm --install-directory "%APPDATA%\npm"
   ```
 
-- **Docker Desktop**, para o PostgreSQL de desenvolvimento (`postgres:18.4-alpine`, porta 5433). A versão major deve ser a mesma do servidor de produção (16 ou superior).
+- **Docker Desktop**, para o PostgreSQL de desenvolvimento (`postgres:17.11-alpine`, porta 5433), a mesma versão major do servidor de produção (PostgreSQL 17).
 
 ## Como rodar
 

@@ -4,7 +4,7 @@ name: metas
 
 services:
   postgres:
-    image: postgres:18.4-alpine
+    image: postgres:17.11-alpine
     restart: unless-stopped
     ports:
       # Só na máquina local. 5433 porque a 5432 pode estar com um PostgreSQL nativo.
@@ -14,7 +14,7 @@ services:
       METAS_OWNER_PASSWORD: ${METAS_OWNER_PASSWORD:?defina METAS_OWNER_PASSWORD no .env}
       METAS_APP_PASSWORD: ${METAS_APP_PASSWORD:?defina METAS_APP_PASSWORD no .env}
     volumes:
-      - metas-pgdata:/var/lib/postgresql
+      - metas-pgdata:/var/lib/postgresql/data
       # Roda só na primeira inicialização (volume vazio): cria usuários e bancos.
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:

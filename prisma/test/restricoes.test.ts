@@ -451,7 +451,8 @@ describe('restrições do banco (CHECKs, únicos e triggers)', () => {
         [id],
       )) as [{ lancamento_id: string }];
       expect((await falha('DELETE FROM lancamento WHERE id = $1', [lancamento_id])).code).toBe(
-        SQLSTATE.RESTRITO,
+        // PostgreSQL 17 (produção): ON DELETE RESTRICT responde 23503; o 18 responderia 23001.
+        SQLSTATE.CHAVE_ESTRANGEIRA,
       );
     });
   });

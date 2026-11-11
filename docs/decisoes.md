@@ -175,7 +175,7 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 ## ADR-010 — Banco de dados de desenvolvimento, Prisma 7 e usuários
 
 - **Data:** 11/11/2026
-- **Status:** Aceita
+- **Status:** Aceita; versão do PostgreSQL substituída pelo ADR-012
 - **Passo:** P07
 
 **Contexto.** O P07 pede PostgreSQL local, esquema Prisma, migração inicial com as regras em SQL, seed e testes de integração. A máquina já tem um PostgreSQL 18 nativo na porta 5432, e a versão de produção ainda não está definida.
@@ -218,3 +218,20 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **pnpm**: scripts de instalação liberados só para `@prisma/engines`, `@swc/core`, `esbuild` e `prisma`; telemetria `@scarf/scarf` bloqueada.
 
 **Consequências.** API e jobs no mesmo formato de módulo do resto do monorepo. Mudanças em `tipos`/`motor`/`prisma` exigem reiniciar o `pnpm dev` para a API enxergar o novo `dist` (os testes leem o código-fonte).
+
+## ADR-012 — PostgreSQL 17 no desenvolvimento, igual à produção
+
+- **Data:** 11/11/2026
+- **Status:** Aceita (substitui a versão do PostgreSQL do ADR-010)
+- **Passo:** ajuste do P07, depois do P08
+
+**Contexto.** O ADR-010 deixou como pendência a versão do PostgreSQL de produção. O desenvolvedor confirmou: o servidor roda **PostgreSQL 17**. A seção 3 do CLAUDE.md pede a mesma versão major em desenvolvimento.
+
+**Decisão.**
+
+- Imagem do Docker trocada de `postgres:18.4-alpine` para **`postgres:17.11-alpine`** (última do 17). O volume monta em `/var/lib/postgresql/data`, o caminho dos dados até o 17 (o 18 usa `/var/lib/postgresql`).
+- O volume do 18 foi apagado (`docker compose down -v`, com autorização) e recriado: dados do 18 não abrem no 17. Banco de desenvolvimento refeito com `db:subir`, `db:migrar` e `db:seed`.
+- A migração `inicial` roda sem mudança no 17 (não foi editada nem recriada).
+- Diferença encontrada nos testes: `ON DELETE RESTRICT` responde SQLSTATE **`23503`** (foreign_key_violation) no 17, e `23001` (restrict_violation) no 18. O teste passou a esperar o código do 17. Quando a API traduzir erros do banco, tratar `23503` como "registro em uso".
+
+**Consequências.** Desenvolvimento, testes e produção na mesma versão major; backups `pg_dump` compatíveis. Quem já tinha o volume do 18 precisa recriá-lo (`docker compose down -v` e `pnpm db:subir`), apagando o banco local.
