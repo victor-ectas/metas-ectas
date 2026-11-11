@@ -17,6 +17,8 @@ export const CodigoErro = {
   PESOS_INCONSISTENTES: 'PESOS_INCONSISTENTES',
   CICLO_ENCERRADO: 'CICLO_ENCERRADO',
   IMPORTACAO_INVALIDA: 'IMPORTACAO_INVALIDA',
+  /** Limite de taxa nas rotas de escrita (CLAUDE.md 6). Não está entre os códigos iniciais da 5.3. */
+  MUITAS_REQUISICOES: 'MUITAS_REQUISICOES',
   ERRO_INTERNO: 'ERRO_INTERNO',
 } as const;
 export type CodigoErro = (typeof CodigoErro)[keyof typeof CodigoErro];

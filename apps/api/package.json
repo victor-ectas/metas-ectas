@@ -3,19 +3,41 @@
   "version": "0.0.0",
   "private": true,
   "description": "API NestJS",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@nestjs/cli": "catalog:",
+    "@nestjs/testing": "catalog:",
+    "@swc/core": "catalog:",
+    "@types/express": "catalog:",
     "@types/node": "catalog:",
+    "@types/supertest": "catalog:",
+    "dotenv": "catalog:",
+    "supertest": "catalog:",
     "typescript": "catalog:",
+    "unplugin-swc": "catalog:",
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@metas/tipos": "workspace:*"
+    "@metas/prisma": "workspace:*",
+    "@metas/tipos": "workspace:*",
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-express": "catalog:",
+    "@nestjs/swagger": "catalog:",
+    "@nestjs/throttler": "catalog:",
+    "helmet": "catalog:",
+    "nestjs-pino": "catalog:",
+    "pino": "catalog:",
+    "pino-http": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
+    "zod": "catalog:"
   }
 }

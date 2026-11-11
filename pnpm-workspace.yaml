@@ -5,22 +5,51 @@ packages:
 
 # Versões exatas, definidas uma vez e usadas pelos pacotes com "catalog:".
 catalog:
+  '@eslint/js': 10.0.1
+  '@nestjs/cli': 12.0.12
+  '@nestjs/common': 12.4.2
+  '@nestjs/core': 12.4.2
+  '@nestjs/platform-express': 12.4.2
+  '@nestjs/swagger': 12.1.1
+  '@nestjs/testing': 12.4.2
+  '@nestjs/throttler': 6.7.1
   '@prisma/adapter-pg': 7.10.1
   '@prisma/client': 7.10.1
-  '@types/pg': 8.23.1
-  dotenv: 18.0.10
-  pg: 8.23.1
-  prisma: 7.10.1
-  tsx: 4.23.15
-  '@eslint/js': 10.0.1
+  '@swc/core': 1.16.22
+  '@types/express': 5.0.6
   '@types/luxon': 3.7.6
   '@types/node': 24.19.2
-  decimal.js: 10.6.0
-  eslint: 10.14.0
-  luxon: 3.7.2
-  prettier: 3.10.0
-  typescript: 6.0.3
-  typescript-eslint: 8.72.2
+  '@types/pg': 8.23.1
+  '@types/supertest': 7.2.1
   '@vitest/coverage-v8': 5.1.0
+  decimal.js: 10.6.0
+  dotenv: 18.0.10
+  eslint: 10.14.0
+  helmet: 8.3.0
+  luxon: 3.7.2
+  nestjs-pino: 5.3.1
+  pg: 8.23.1
+  pino-http: 11.0.0
+  pino: 10.4.0
+  prettier: 3.10.0
+  prisma: 7.10.1
+  reflect-metadata: 0.2.2
+  rxjs: 7.8.2
+  supertest: 7.3.2
+  tsx: 4.23.15
+  typescript-eslint: 8.72.2
+  typescript: 6.0.3
+  unplugin-swc: 2.0.0
   vitest: 5.1.0
   zod: 4.6.7
+
+# Scripts de instalação permitidos (pnpm 10 bloqueia por padrão): só ferramentas de build.
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - '@swc/core'
+  - esbuild
+  - prisma
+
+# Telemetria do swagger-ui: não roda.
+ignoredBuiltDependencies:
+  - '@scarf/scarf'

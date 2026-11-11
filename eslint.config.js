@@ -20,6 +20,8 @@ export default defineConfig(
       'no-eval': 'error',
       'no-new-func': 'error',
       '@typescript-eslint/no-implied-eval': 'error',
+      // Módulos do NestJS são classes vazias ou estáticas com decorator: é o padrão do framework.
+      '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
     },
   },
   {

@@ -1,3 +1,4 @@
+import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
 // Pacotes do monorepo (@metas/*) resolvem para o código-fonte nos testes (ADR-005).
@@ -5,6 +6,8 @@ import { defineConfig } from 'vitest/config';
 const CONDICAO_FONTE = '@metas/source';
 
 export default defineConfig({
+  // SWC compila os decorators do Nest com metadados de tipo (emitDecoratorMetadata).
+  plugins: [swc.vite({ module: { type: 'es6' } })],
   resolve: {
     conditions: [CONDICAO_FONTE, 'module', 'browser', 'development|production'],
   },
@@ -16,5 +19,8 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
     environment: 'node',
+    // Os testes de integração usam o banco de testes real.
+    fileParallelism: false,
+    testTimeout: 30_000,
   },
 });

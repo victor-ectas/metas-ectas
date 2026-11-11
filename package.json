@@ -13,7 +13,7 @@
     "db:parar": "docker compose stop",
     "db:migrar": "pnpm --filter @metas/prisma migrate:dev",
     "db:seed": "pnpm --filter @metas/prisma seed",
-    "dev": "pnpm -r --parallel --if-present run dev",
+    "dev": "pnpm --filter @metas/tipos --filter @metas/motor --filter @metas/prisma run build && pnpm -r --parallel --if-present run dev",
     "build": "pnpm -r --if-present run build",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",

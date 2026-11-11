@@ -31,8 +31,15 @@ cp .env.example .env   # preencha as senhas (o .env nunca vai para o git)
 pnpm db:subir          # sobe o PostgreSQL no Docker (cria usuários e bancos na 1ª vez)
 pnpm db:migrar         # aplica as migrações no banco de desenvolvimento
 pnpm db:seed           # Administrador (SEED_ADMIN_EMAIL), setores, ciclo e feriados de exemplo
-pnpm dev               # sobe api, jobs e web em modo desenvolvimento
+pnpm dev               # compila tipos/motor/prisma e sobe a API (jobs e web entram depois)
 ```
+
+Com o `pnpm dev` no ar:
+
+- API: http://localhost:3000/api/v1 — saúde em `/api/v1/saude`
+- Documentação OpenAPI (só fora de produção): http://localhost:3000/api/v1/docs
+
+Mudou algo em `packages/` ou `prisma/`? Reinicie o `pnpm dev` para a API usar o novo build. A web entra no P10.
 
 ### Banco de dados
 
@@ -46,8 +53,6 @@ O `docker-compose.yml` sobe um PostgreSQL só para desenvolvimento, com dois usu
 e dois bancos: `metas` (desenvolvimento) e `metas_teste` (testes de integração). O `pnpm test` do pacote `@metas/prisma` aplica as migrações no `metas_teste` e roda cada teste numa transação desfeita, então **o PostgreSQL precisa estar no ar para o `pnpm verify` passar**.
 
 Para mudar o esquema: edite `prisma/schema.prisma` e rode `pnpm db:migrar` (cria uma migração nova). Migrações já aplicadas não são editadas.
-
-> Até os passos P08 (API) e P10 (web), `pnpm dev` ainda não sobe nenhum serviço.
 
 ## Scripts
 

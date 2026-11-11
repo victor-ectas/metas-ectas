@@ -47,7 +47,7 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 ## ADR-003 — Formato de módulo por pacote
 
 - **Data:** 11/11/2026
-- **Status:** Aceita; resolução de módulos do `motor` e do `tipos` substituída pelo ADR-005
+- **Status:** Substituída: resolução do `motor`/`tipos` pelo ADR-005; formato da `api`/`jobs` pelo ADR-011
 - **Passo:** P01
 
 **Contexto.** O `motor` e o `tipos` rodam no navegador e no servidor; a `web` usa Vite; a `api` usa NestJS, cujo padrão é CommonJS (decorators e metadados).
@@ -194,3 +194,27 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Testes de integração** no `metas_teste`: o `globalSetup` roda `prisma migrate deploy` (não apaga nada); cada teste roda numa transação desfeita; os testes recusam qualquer banco cujo nome não termine em `_teste`.
 
 **Consequências.** `pnpm verify` passa a exigir o PostgreSQL no ar (`pnpm db:subir`). O roteiro de produção (P16) precisa criar os mesmos dois usuários com os mesmos privilégios.
+
+## ADR-011 — API em NestJS 12 (ESM), erros, logs e proteções
+
+- **Data:** 11/11/2026
+- **Status:** Aceita
+- **Passo:** P08
+
+**Contexto.** O ADR-003 pôs `api` e `jobs` em CommonJS por ser o padrão do NestJS. O NestJS 12 (12.4.2, versão atual) é publicado só em ESM.
+
+**Decisão.**
+
+- **NestJS 12.4.2 com `api` e `jobs` em ESM** (`"type": "module"`, `NodeNext`, imports com `.js`), igual a `motor` e `tipos`. Decorators com `experimentalDecorators` + `emitDecoratorMetadata`; nos testes, `unplugin-swc` 2.0.0 + `@swc/core` 1.16.22. Dev com `@nestjs/cli` 12.0.12 (`nest start --watch`, builder tsc).
+- **Pacotes internos em runtime** vêm do `dist`: `@metas/prisma` ganhou build. O `pnpm dev` da raiz compila `tipos`, `motor` e `prisma` antes de subir os serviços.
+- **Configuração**: schema Zod em `config/config.ts`; falta ou erro lista todos os problemas em português e a API não inicia. `.env` da raiz lido com `process.loadEnvFile` do Node, só se o arquivo existir (em produção as variáveis vêm do serviço do Windows). Nova variável opcional `LIMITE_ESCRITA_POR_MINUTO` (padrão 120).
+- **Erros**: `ErroApi(codigo, mensagem, detalhes)` com status por código — 400 `VALIDACAO`, 401, 403, 404, 409 `CONFLITO_VERSAO`, **422 para regras de negócio** (`MES_FECHADO`, `MES_FUTURO`, `FORMULA_INVALIDA`, `PESOS_INCONSISTENTES`, `CICLO_ENCERRADO`, `IMPORTACAO_INVALIDA`), 429, 500. Filtro global converte também exceções do Nest, `ZodError` (campos em `detalhes.campos`), JSON malformado e erros inesperados (500 com `requestId` em `detalhes` e no texto, sem stack nem mensagem interna).
+- **Código novo `MUITAS_REQUISICOES`** em `@metas/tipos` para o limite de taxa (a 5.3 lista os códigos iniciais).
+- **Logs**: `nestjs-pino` 5.3.1 (pino 10.4.0, pino-http 11.0.0), JSON; `requestId` do cabeçalho `X-Request-Id` (se curto e simples) ou UUID, devolvido na resposta; serializadores só com id, método, URL e status — nunca cabeçalhos nem corpo.
+- **Segurança**: `helmet` 8.3.0 (CSP completo em produção; desligado fora dela por causa da interface do Swagger); CORS só para `WEB_ORIGIN` (lista, sem refletir outras origens); `trust proxy = loopback` (IIS na mesma máquina); limite de taxa com `@nestjs/throttler` 6.7.1 só em POST/PUT/PATCH/DELETE, por IP.
+- **OpenAPI** (`@nestjs/swagger` 12.1.1) em `/api/v1/docs` e `/api/v1/docs-json`, só fora de produção.
+- **Saúde**: `GET /api/v1/saude` com `SELECT 1` (prazo 3 s); 200 `{ status: 'ok', verificacoes, em }` ou 503 `indisponivel` (corpo de saúde, não de erro). Pública por enquanto; continuará pública quando a autenticação entrar (P09).
+- **Prisma na API**: `PrismaService extends PrismaClient`, conexão sob demanda (a API sobe com o banco fora e a saúde mostra 503).
+- **pnpm**: scripts de instalação liberados só para `@prisma/engines`, `@swc/core`, `esbuild` e `prisma`; telemetria `@scarf/scarf` bloqueada.
+
+**Consequências.** API e jobs no mesmo formato de módulo do resto do monorepo. Mudanças em `tipos`/`motor`/`prisma` exigem reiniciar o `pnpm dev` para a API enxergar o novo `dist` (os testes leem o código-fonte).
