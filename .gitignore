@@ -1,0 +1,25 @@
+# Dependências e saídas de build
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Variáveis de ambiente (segredos). Só o .env.example vai para o repositório.
+.env
+.env.*
+!.env.example
+
+# Testes ponta a ponta
+playwright-report/
+test-results/
+
+# Logs
+*.log
+logs/
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.idea/
+~$*

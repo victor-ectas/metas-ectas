@@ -1,0 +1,61 @@
+# Sistema de Gestão de Metas
+
+Aplicação web interna que substitui as planilhas de metas dos gestores: cadastro de metas e fórmulas, lançamento mensal das variáveis, cálculo de resultado, atendimento, pontuação e nota, com trava de meses fechados.
+
+- Regras completas: [docs/especificacao.md](docs/especificacao.md)
+- Instruções de desenvolvimento e plano passo a passo: [CLAUDE.md](CLAUDE.md)
+- Decisões técnicas: [docs/decisoes.md](docs/decisoes.md)
+
+## Pré-requisitos
+
+- **Node.js 24 LTS** (versão exata em [.nvmrc](.nvmrc)).
+- **pnpm** na versão de `packageManager` do [package.json](package.json). Instale com:
+
+  ```sh
+  corepack enable pnpm
+  ```
+
+  Sem permissão de administrador no Windows, instale o atalho numa pasta do usuário que esteja no `PATH`:
+
+  ```sh
+  corepack enable pnpm --install-directory "%APPDATA%\npm"
+  ```
+
+- **PostgreSQL** na mesma versão major do servidor de produção (16 ou superior). Entra no passo P07.
+
+## Como rodar
+
+```sh
+pnpm install           # instala as dependências de todos os pacotes
+cp .env.example .env   # e preencha os valores (o .env nunca vai para o git)
+pnpm dev               # sobe api, jobs e web em modo desenvolvimento
+```
+
+> Até os passos P08 (API) e P10 (web), `pnpm dev` ainda não sobe nenhum serviço.
+
+## Scripts
+
+| Comando          | O que faz                                                     |
+| ---------------- | ------------------------------------------------------------- |
+| `pnpm dev`       | Sobe api, jobs e web em modo desenvolvimento                  |
+| `pnpm build`     | Build de todos os pacotes                                     |
+| `pnpm lint`      | ESLint e checagem de formatação (Prettier)                    |
+| `pnpm format`    | Formata os arquivos com o Prettier                            |
+| `pnpm typecheck` | Checagem de tipos de todos os pacotes                         |
+| `pnpm test`      | Testes (Vitest) de todos os pacotes                           |
+| `pnpm verify`    | `lint` + `typecheck` + `test`; tem que passar ao fim de passo |
+
+Para rodar um script num pacote só: `pnpm --filter @metas/motor test`.
+
+## Estrutura
+
+```
+apps/
+  api/        API NestJS
+  jobs/       serviço de jobs (pg-boss)
+  web/        front-end React + Vite
+packages/
+  motor/      parser de fórmulas, cálculo e calendário (sem banco, sem HTTP)
+  tipos/      enums, DTOs e schemas Zod compartilhados
+docs/         especificação, decisões e roteiros
+```

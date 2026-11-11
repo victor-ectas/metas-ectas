@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+
+# Documentos mantidos fora do código: não reformatar.
+CLAUDE.md
+docs/especificacao.md
