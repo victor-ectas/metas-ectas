@@ -23,6 +23,8 @@ import {
   SituacaoSchema,
   StatusCiclo,
   StatusCicloSchema,
+  StatusMes,
+  StatusMesSchema,
   TipoFeriado,
   TipoFeriadoSchema,
   TipoVariavel,
@@ -73,11 +75,13 @@ const casos = [
   ['EscopoReabertura', EscopoReabertura, EscopoReaberturaSchema, ['TODOS', 'SETOR', 'GESTOR']],
   ['Situacao', Situacao, SituacaoSchema, ['BATIDA', 'ABAIXO', 'FORA_DA_FAIXA', 'SEM_DADOS']],
   ['Bloco', Bloco, BlocoSchema, ['CORPORATIVO', 'DEPARTAMENTAL']],
+  // Não é da 9.1: status calculado do mês (P06).
+  ['StatusMes', StatusMes, StatusMesSchema, ['ABERTO', 'FECHADO', 'REABERTO', 'FUTURO']],
 ] as const;
 
-describe('enums da seção 9.1', () => {
-  it('cobre os 14 enums', () => {
-    expect(casos).toHaveLength(14);
+describe('enums da seção 9.1 e StatusMes', () => {
+  it('cobre os 14 enums da 9.1 e o StatusMes', () => {
+    expect(casos).toHaveLength(15);
   });
 
   describe.each(casos)('%s', (_nome, objeto, schema, valores) => {

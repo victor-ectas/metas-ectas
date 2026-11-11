@@ -151,3 +151,23 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Validação de 2 níveis**: uma submeta com submetas gera só esse erro (não acusa os pesos dela).
 
 **Consequências.** O mesmo código serve à API (P17) e à prévia da web (P19). A API precisa resolver os códigos simples da fórmula para as variáveis do setor da meta e os `SETOR.CODIGO` para as do outro setor.
+
+## ADR-009 — Calendário de fechamento no motor
+
+- **Data:** 11/11/2026
+- **Status:** Aceita
+- **Passo:** P06
+
+**Contexto.** RN-33 a RN-36 definem dias úteis, fechamento no 15º dia útil de M+1 e reabertura, sempre em `America/Sao_Paulo`.
+
+**Decisão.**
+
+- **Luxon** 3.7.2 (`@types/luxon` 3.7.6) no `motor`. O fuso é a constante `ZONA_REGRAS = 'America/Sao_Paulo'` do motor, e não a variável `TZ_REGRAS`: a regra é de negócio e o mesmo código roda no navegador. Testado com o processo em UTC, Tóquio e Los Angeles.
+- **Fechamento** = `endOf('day')` do 15º dia útil, ou seja, 23:59:59.999. A partir de 00:00:00.000 do dia seguinte o mês está fechado (CT-18).
+- **Feriados** chegam como `AAAA-MM-DD`; data inválida lança `RangeError`, para um cadastro errado não mudar o prazo em silêncio. Mês seguinte com menos de 15 dias úteis também lança erro.
+- **Mês corrente** é o de São Paulo: às 01:00 UTC de 01/11 ainda é outubro, e novembro é `FUTURO`.
+- **Reabertura**: vale enquanto `agora ≤ validoAte` e antes de `canceladaEm`. O escopo (todos, setor, gestor) é filtrado por quem chama (API), e o motor só confere ano e mês. Reabertura não altera mês ainda aberto nem mês futuro.
+- **`StatusMes`** (`ABERTO`, `FECHADO`, `REABERTO`, `FUTURO`) foi para `@metas/tipos`, porque a API devolve e a web exibe.
+- **Instantes** aceitos como `Date`, `DateTime` ou texto ISO com fuso.
+
+**Consequências.** A API (P18) chama `statusMes` em toda gravação (RN-35) com os feriados e as reaberturas do escopo do lançamento; o job (P22) só atualiza a exibição.

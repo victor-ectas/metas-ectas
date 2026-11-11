@@ -129,6 +129,19 @@ export const Situacao = {
 export type Situacao = ValorDe<typeof Situacao>;
 export const SituacaoSchema = z.enum(Situacao);
 
+/**
+ * Status de um mês para lançamento (RN-34 a RN-36). Não é enum do banco: é calculado pelo
+ * calendário do motor a partir da data de fechamento e das reaberturas.
+ */
+export const StatusMes = {
+  ABERTO: 'ABERTO',
+  FECHADO: 'FECHADO',
+  REABERTO: 'REABERTO',
+  FUTURO: 'FUTURO',
+} as const;
+export type StatusMes = ValorDe<typeof StatusMes>;
+export const StatusMesSchema = z.enum(StatusMes);
+
 /** Bloco da nota do gestor, derivado do setor da meta (RN-02). */
 export const Bloco = {
   CORPORATIVO: 'CORPORATIVO',
