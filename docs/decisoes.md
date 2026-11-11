@@ -127,3 +127,27 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Validação**: devolve todos os erros (não só o primeiro), na ordem do texto; variável desconhecida repetida aparece uma vez. O erro de aridade sugere `;` quando algum argumento foi digitado com vírgula decimal.
 
 **Consequências.** O mesmo código calcula na API e na prévia da web. A conversão de `Prisma.Decimal` para o `Decimal` do motor é automática.
+
+## ADR-008 — Cálculo de metas: interface do motor e pontos não fixados na especificação
+
+- **Data:** 11/11/2026
+- **Status:** Aceita
+- **Passo:** P05
+
+**Contexto.** As seções 8.2 a 8.6 do `CLAUDE.md` definem o cálculo, mas deixam em aberto a forma dos dados e alguns casos-limite.
+
+**Decisão.**
+
+- **Interface orientada a dados**: `calcularMeta(meta, variaveis)` e `calcularCiclo({ metas, variaveis, atribuicoes })`. A meta traz a AST, o mapa "chave da fórmula → id da variável", período, objetivos (`0` = único), operador, tolerância, regra, peso interno e `submetas` aninhadas. Variáveis trazem acumulação e valores por mês. A API monta essas estruturas a partir do banco.
+- **Saída sem arredondar**: valores em `Decimal` com precisão total; o arredondamento de exibição (2 casas na unidade; percentual com 2 casas em pontos percentuais) fica em `arredondarExibicao`, `arredondarAtendimento` e `arredondarPontos`. A memória de cálculo sai em textos e números, pronta para `jsonb`.
+- **Atendimento da mãe** = Σ(pᵢ × atᵢ) / Σpᵢ. Com pesos somando 100% é exatamente a RN-27; dividir pela soma evita que 33,33% × 3 impeça a mãe de chegar a 100%.
+- **Situação da mãe**: Sem dados se todos os componentes estão sem dados; Batida com atendimento composto = 1; senão Abaixo.
+- **Regra efetiva**: operador FAIXA força tudo ou nada só em meta sem submetas; numa mãe vale a regra cadastrada sobre o atendimento composto.
+- **Sem objetivo**: no mês, atendimento e situação mensais ficam `null`; no acumulado, atendimento 0, situação Abaixo (Fora da faixa no FAIXA) e aviso `SEM_OBJETIVO`. `validarMeta` impede salvar meta sem objetivo do último mês nem único.
+- **Divisão por zero no acumulado** (fórmula sobre acumulados): acumulado vazio, situação Sem dados e aviso `DIVISAO_POR_ZERO`.
+- **Variável não mapeada ou ausente**: tratada como vazia.
+- **RN-23** vale só para meta pontuada (sem submetas e sem mãe) com operador diferente de FAIXA, e confere todos os objetivos informados.
+- **Comparação de somas**: pesos internos com 2 casas em pontos percentuais (fração com 4 casas); pesos de bloco com 2 casas.
+- **Validação de 2 níveis**: uma submeta com submetas gera só esse erro (não acusa os pesos dela).
+
+**Consequências.** O mesmo código serve à API (P17) e à prévia da web (P19). A API precisa resolver os códigos simples da fórmula para as variáveis do setor da meta e os `SETOR.CODIGO` para as do outro setor.
