@@ -25,6 +25,7 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@metas/tipos": "workspace:*"
+    "@metas/tipos": "workspace:*",
+    "decimal.js": "catalog:"
   }
 }
