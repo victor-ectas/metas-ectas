@@ -1,0 +1,655 @@
+// Esquema do banco (CLAUDE.md 9). Tabelas e colunas em snake_case, mapeadas para camelCase.
+// Regras que o Prisma não expressa (CHECK, índices parciais, triggers) estão no SQL das migrações.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "./src/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------------------------
+// Enums (9.1)
+// ---------------------------------------------------------------------------------------------
+
+enum Perfil {
+  ADMIN
+  DIRETORIA
+  GESTOR
+  LEITOR
+
+  @@map("perfil")
+}
+
+enum StatusCiclo {
+  RASCUNHO
+  ATIVO
+  ENCERRADO
+
+  @@map("status_ciclo")
+}
+
+enum TipoFeriado {
+  NACIONAL
+  ESTADUAL
+  MUNICIPAL
+  EMPRESA
+
+  @@map("tipo_feriado")
+}
+
+enum TipoVariavel {
+  NUMERO
+  PERCENTUAL
+  MOEDA
+  DIAS
+  HORAS
+  SIM_NAO
+
+  @@map("tipo_variavel")
+}
+
+enum Acumulacao {
+  SOMA
+  MEDIA
+  ULTIMO
+  MAXIMO
+
+  @@map("acumulacao")
+}
+
+enum OrigemVariavel {
+  DIGITADA
+  IMPORTADA
+
+  @@map("origem_variavel")
+}
+
+enum ModoApuracao {
+  FORMULA_SOBRE_ACUMULADOS
+  SOMA_RESULTADOS
+  MEDIA_RESULTADOS
+  MAXIMO_RESULTADOS
+  ULTIMO_RESULTADO
+
+  @@map("modo_apuracao")
+}
+
+enum Operador {
+  GE
+  LE
+  EQ
+  FAIXA
+
+  @@map("operador")
+}
+
+enum RegraPontuacao {
+  TUDO_OU_NADA
+  PROPORCIONAL
+
+  @@map("regra_pontuacao")
+}
+
+enum Unidade {
+  PERCENTUAL
+  NUMERO
+  DIAS
+  HORAS
+  MOEDA
+  SIM_NAO
+
+  @@map("unidade")
+}
+
+enum OrigemLancamento {
+  DIGITACAO
+  IMPORTACAO
+  CARGA_HISTORICA
+  CORRECAO
+
+  @@map("origem_lancamento")
+}
+
+enum EscopoReabertura {
+  TODOS
+  SETOR
+  GESTOR
+
+  @@map("escopo_reabertura")
+}
+
+enum Situacao {
+  BATIDA
+  ABAIXO
+  FORA_DA_FAIXA
+  SEM_DADOS
+
+  @@map("situacao")
+}
+
+enum Bloco {
+  CORPORATIVO
+  DEPARTAMENTAL
+
+  @@map("bloco")
+}
+
+// Especificação 7.3: modo da importação.
+enum ModoImportacao {
+  GESTOR
+  CARGA_HISTORICA
+
+  @@map("modo_importacao")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Organização e acesso
+// ---------------------------------------------------------------------------------------------
+
+/// Usuário do sistema. Criado no 1º login como LEITOR inativo (RN, seção 6).
+model Usuario {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// `oid` do Entra ID. Nulo até o primeiro login de um usuário pré-cadastrado pelo e-mail.
+  entraOid      String?  @unique @map("entra_oid") @db.VarChar(64)
+  nome          String   @db.VarChar(200)
+  /// Sempre em minúsculas (CHECK na migração).
+  email         String   @unique @db.VarChar(254)
+  perfil        Perfil   @default(LEITOR)
+  gerenteGeral  Boolean  @default(false) @map("gerente_geral")
+  superiorId    String?  @map("superior_id") @db.Uuid
+  ativo         Boolean  @default(false)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?  @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?  @map("atualizado_por") @db.Uuid
+
+  superior             Usuario?              @relation("UsuarioSuperior", fields: [superiorId], references: [id], onDelete: Restrict)
+  subordinados         Usuario[]             @relation("UsuarioSuperior")
+  setoresResponsavel   SetorResponsavel[]
+  setoresLeitor        LeitorSetor[]
+  variaveisResponsavel Variavel[]
+  metasResponsavel     Meta[]
+  atribuicoes          MetaAtribuicao[]
+  lancamentosHistorico LancamentoHistorico[]
+  importacoes          Importacao[]
+  notas                NotaGestor[]
+  notasFechamento      NotaFechamento[]
+  auditorias           Auditoria[]
+
+  @@index([superiorId])
+  @@map("usuario")
+}
+
+/// Setor. Só um pode ser o Corporativo (índice único parcial na migração).
+model Setor {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Código usado nas fórmulas (`RH.TOTAL_COLAB`): maiúsculas, números e _ (CHECK).
+  codigo        String   @unique @db.VarChar(30)
+  nome          String   @db.VarChar(120)
+  corporativo   Boolean  @default(false)
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?  @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?  @map("atualizado_por") @db.Uuid
+
+  responsaveis SetorResponsavel[]
+  leitores     LeitorSetor[]
+  variaveis    Variavel[]
+  metas        Meta[]
+
+  @@map("setor")
+}
+
+/// Ciclo = ano de metas (RN-01). Só um ciclo ATIVO por vez (índice único parcial, RF-07).
+model Ciclo {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ano           Int         @unique @db.SmallInt
+  status        StatusCiclo @default(RASCUNHO)
+  encerradoEm   DateTime?   @map("encerrado_em") @db.Timestamptz(6)
+  encerradoPor  String?     @map("encerrado_por") @db.Uuid
+  criadoEm      DateTime    @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?     @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime    @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?     @map("atualizado_por") @db.Uuid
+
+  responsaveis    SetorResponsavel[]
+  variaveis       Variavel[]
+  metas           Meta[]
+  reaberturas     Reabertura[]
+  notas           NotaGestor[]
+  notasFechamento NotaFechamento[]
+
+  @@map("ciclo")
+}
+
+/// Gestor responsável por cada setor no ciclo (RF-05).
+model SetorResponsavel {
+  cicloId       String   @map("ciclo_id") @db.Uuid
+  setorId       String   @map("setor_id") @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?  @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?  @map("atualizado_por") @db.Uuid
+
+  ciclo   Ciclo   @relation(fields: [cicloId], references: [id], onDelete: Restrict)
+  setor   Setor   @relation(fields: [setorId], references: [id], onDelete: Restrict)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@id([cicloId, setorId])
+  @@index([setorId])
+  @@index([usuarioId])
+  @@map("setor_responsavel")
+}
+
+/// Setores visíveis a um usuário com perfil Leitor.
+model LeitorSetor {
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  setorId       String   @map("setor_id") @db.Uuid
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?  @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?  @map("atualizado_por") @db.Uuid
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  setor   Setor   @relation(fields: [setorId], references: [id], onDelete: Restrict)
+
+  @@id([usuarioId, setorId])
+  @@index([setorId])
+  @@map("leitor_setor")
+}
+
+/// Calendário da empresa (Joinville/SC), mantido pelo Administrador (RF-06, RN-33).
+model Feriado {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  data          DateTime    @unique @db.Date
+  descricao     String      @db.VarChar(120)
+  tipo          TipoFeriado
+  criadoEm      DateTime    @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?     @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime    @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?     @map("atualizado_por") @db.Uuid
+
+  @@map("feriado")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Catálogo e metas
+// ---------------------------------------------------------------------------------------------
+
+/// Modelo do catálogo: sem peso nem objetivo (RF-08).
+model ModeloMeta {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo           String       @unique @db.VarChar(40)
+  nome             String       @db.VarChar(200)
+  metrica          String
+  unidade          Unidade
+  formula          String
+  modoApuracao     ModoApuracao @map("modo_apuracao")
+  operadorSugerido Operador     @map("operador_sugerido")
+  ativo            Boolean      @default(true)
+  criadoEm         DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor        String?      @map("criado_por") @db.Uuid
+  atualizadoEm     DateTime     @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor    String?      @map("atualizado_por") @db.Uuid
+
+  variaveis ModeloVariavel[]
+  metas     Meta[]
+
+  @@map("modelo_meta")
+}
+
+model ModeloVariavel {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modeloId      String       @map("modelo_id") @db.Uuid
+  codigo        String       @db.VarChar(40)
+  nome          String       @db.VarChar(200)
+  tipo          TipoVariavel
+  acumulacao    Acumulacao
+  criadoEm      DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?      @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime     @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?      @map("atualizado_por") @db.Uuid
+
+  modelo ModeloMeta @relation(fields: [modeloId], references: [id], onDelete: Cascade)
+
+  @@unique([modeloId, codigo])
+  @@map("modelo_variavel")
+}
+
+/// Variável lançada mês a mês, pertence a um setor no ciclo (RN-07). Código único por
+/// ciclo e setor; o mesmo código pode existir em setores diferentes.
+model Variavel {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cicloId       String         @map("ciclo_id") @db.Uuid
+  setorId       String         @map("setor_id") @db.Uuid
+  codigo        String         @db.VarChar(40)
+  nome          String         @db.VarChar(200)
+  tipo          TipoVariavel
+  acumulacao    Acumulacao
+  origem        OrigemVariavel @default(DIGITADA)
+  /// Só no setor Corporativo; nos demais, lança o responsável pelo setor no ciclo.
+  responsavelId String?        @map("responsavel_id") @db.Uuid
+  casasDecimais Int            @default(2) @map("casas_decimais") @db.SmallInt
+  ativo         Boolean        @default(true)
+  criadoEm      DateTime       @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?        @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime       @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?        @map("atualizado_por") @db.Uuid
+
+  ciclo       Ciclo          @relation(fields: [cicloId], references: [id], onDelete: Restrict)
+  setor       Setor          @relation(fields: [setorId], references: [id], onDelete: Restrict)
+  responsavel Usuario?       @relation(fields: [responsavelId], references: [id], onDelete: Restrict)
+  metas       MetaVariavel[]
+  lancamentos Lancamento[]
+
+  @@unique([cicloId, setorId, codigo])
+  @@index([setorId])
+  @@index([responsavelId])
+  @@map("variavel")
+}
+
+/// Meta ou submeta (meta_pai_id). No máximo 2 níveis (trigger na migração).
+model Meta {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cicloId        String         @map("ciclo_id") @db.Uuid
+  setorId        String         @map("setor_id") @db.Uuid
+  metaPaiId      String?        @map("meta_pai_id") @db.Uuid
+  modeloId       String?        @map("modelo_id") @db.Uuid
+  codigo         String         @db.VarChar(40)
+  indicador      String         @db.VarChar(200)
+  metrica        String
+  unidade        Unidade
+  /// Nulo só em meta-mãe que apenas agrega as submetas (RN-30). Texto e AST andam juntos (CHECK).
+  formulaTexto   String?        @map("formula_texto")
+  formulaAst     Json?          @map("formula_ast")
+  modoApuracao   ModoApuracao   @map("modo_apuracao")
+  operador       Operador
+  tolerancia     Decimal?       @db.Decimal(18, 6)
+  mesInicio      Int            @map("mes_inicio") @db.SmallInt
+  mesFim         Int            @map("mes_fim") @db.SmallInt
+  regraPontuacao RegraPontuacao @map("regra_pontuacao")
+  /// Fração (20% = 0,2): peso dentro da mãe, em submetas e no componente próprio da mãe.
+  pesoInterno    Decimal?       @map("peso_interno") @db.Decimal(18, 6)
+  responsavelId  String         @map("responsavel_id") @db.Uuid
+  ordem          Int            @default(0)
+  ativo          Boolean        @default(true)
+  /// Incrementada a cada alteração (P13).
+  versao         Int            @default(1)
+  criadoEm       DateTime       @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor      String?        @map("criado_por") @db.Uuid
+  atualizadoEm   DateTime       @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor  String?        @map("atualizado_por") @db.Uuid
+
+  ciclo         Ciclo              @relation(fields: [cicloId], references: [id], onDelete: Restrict)
+  setor         Setor              @relation(fields: [setorId], references: [id], onDelete: Restrict)
+  metaPai       Meta?              @relation("Submetas", fields: [metaPaiId], references: [id], onDelete: Restrict)
+  submetas      Meta[]             @relation("Submetas")
+  modelo        ModeloMeta?        @relation(fields: [modeloId], references: [id], onDelete: SetNull)
+  responsavel   Usuario            @relation(fields: [responsavelId], references: [id], onDelete: Restrict)
+  variaveis     MetaVariavel[]
+  objetivos     MetaObjetivo[]
+  atribuicoes   MetaAtribuicao[]
+  resultadosMes ResultadoMetaMes[]
+  resultado     ResultadoMeta?
+
+  @@unique([cicloId, codigo])
+  @@index([setorId])
+  @@index([metaPaiId])
+  @@index([modeloId])
+  @@index([responsavelId])
+  @@map("meta")
+}
+
+/// Variáveis usadas pela fórmula da meta, derivadas da AST ao salvar.
+model MetaVariavel {
+  metaId     String @map("meta_id") @db.Uuid
+  variavelId String @map("variavel_id") @db.Uuid
+
+  meta     Meta     @relation(fields: [metaId], references: [id], onDelete: Cascade)
+  variavel Variavel @relation(fields: [variavelId], references: [id], onDelete: Restrict)
+
+  @@id([metaId, variavelId])
+  @@index([variavelId])
+  @@map("meta_variavel")
+}
+
+/// Objetivo único (mes = 0) ou mensal (1 a 12) (RN-15).
+model MetaObjetivo {
+  metaId        String   @map("meta_id") @db.Uuid
+  mes           Int      @db.SmallInt
+  valor         Decimal  @db.Decimal(18, 6)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?  @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?  @map("atualizado_por") @db.Uuid
+
+  meta Meta @relation(fields: [metaId], references: [id], onDelete: Cascade)
+
+  @@id([metaId, mes])
+  @@map("meta_objetivo")
+}
+
+/// Peso de uma meta sem pai para um gestor (RN-05). Submeta não tem atribuição (trigger).
+model MetaAtribuicao {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  metaId        String   @map("meta_id") @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  peso          Decimal  @db.Decimal(18, 6)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?  @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?  @map("atualizado_por") @db.Uuid
+
+  meta      Meta                 @relation(fields: [metaId], references: [id], onDelete: Cascade)
+  usuario   Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  resultado ResultadoAtribuicao?
+
+  @@unique([metaId, usuarioId])
+  @@index([usuarioId])
+  @@map("meta_atribuicao")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lançamentos e governança
+// ---------------------------------------------------------------------------------------------
+
+/// Valor de uma variável num mês. `valor` nulo = vazio (RN-08). `versao` para concorrência otimista.
+model Lancamento {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  variavelId    String           @map("variavel_id") @db.Uuid
+  mes           Int              @db.SmallInt
+  valor         Decimal?         @db.Decimal(18, 6)
+  origem        OrigemLancamento
+  versao        Int              @default(1)
+  criadoEm      DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?          @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime         @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?          @map("atualizado_por") @db.Uuid
+
+  variavel  Variavel              @relation(fields: [variavelId], references: [id], onDelete: Restrict)
+  historico LancamentoHistorico[]
+
+  @@unique([variavelId, mes])
+  @@map("lancamento")
+}
+
+/// Histórico de valores, somente inclusão (RN-40): UPDATE, DELETE e TRUNCATE bloqueados por trigger.
+model LancamentoHistorico {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lancamentoId  String           @map("lancamento_id") @db.Uuid
+  valorAnterior Decimal?         @map("valor_anterior") @db.Decimal(18, 6)
+  valorNovo     Decimal?         @map("valor_novo") @db.Decimal(18, 6)
+  origem        OrigemLancamento
+  usuarioId     String           @map("usuario_id") @db.Uuid
+  em            DateTime         @default(now()) @db.Timestamptz(6)
+  importacaoId  String?          @map("importacao_id") @db.Uuid
+  reaberturaId  String?          @map("reabertura_id") @db.Uuid
+
+  lancamento Lancamento  @relation(fields: [lancamentoId], references: [id], onDelete: Restrict)
+  usuario    Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  importacao Importacao? @relation(fields: [importacaoId], references: [id], onDelete: Restrict)
+  reabertura Reabertura? @relation(fields: [reaberturaId], references: [id], onDelete: Restrict)
+
+  @@index([lancamentoId, em])
+  @@index([usuarioId])
+  @@index([importacaoId])
+  @@index([reaberturaId])
+  @@map("lancamento_historico")
+}
+
+/// Reabertura de um mês fechado pelo Administrador (RN-36). `escopo_id` = setor ou gestor.
+model Reabertura {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cicloId       String           @map("ciclo_id") @db.Uuid
+  mes           Int              @db.SmallInt
+  escopo        EscopoReabertura
+  escopoId      String?          @map("escopo_id") @db.Uuid
+  validoAte     DateTime         @map("valido_ate") @db.Timestamptz(6)
+  motivo        String
+  autorizadoPor String           @map("autorizado_por") @db.VarChar(200)
+  canceladaEm   DateTime?        @map("cancelada_em") @db.Timestamptz(6)
+  criadoEm      DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor     String?          @map("criado_por") @db.Uuid
+  atualizadoEm  DateTime         @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor String?          @map("atualizado_por") @db.Uuid
+
+  ciclo     Ciclo                 @relation(fields: [cicloId], references: [id], onDelete: Restrict)
+  historico LancamentoHistorico[]
+
+  @@index([cicloId, mes])
+  @@map("reabertura")
+}
+
+/// Importação Excel (RF-41). `status` vira enum no P24, quando o fluxo for detalhado.
+model Importacao {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  arquivoNome    String         @map("arquivo_nome") @db.VarChar(255)
+  modo           ModoImportacao
+  linhasTotal    Int            @default(0) @map("linhas_total")
+  linhasGravadas Int            @default(0) @map("linhas_gravadas")
+  status         String         @db.VarChar(30)
+  erros          Json           @default("[]")
+  usuarioId      String         @map("usuario_id") @db.Uuid
+  criadoEm       DateTime       @default(now()) @map("criado_em") @db.Timestamptz(6)
+  criadoPor      String?        @map("criado_por") @db.Uuid
+  atualizadoEm   DateTime       @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  atualizadoPor  String?        @map("atualizado_por") @db.Uuid
+
+  usuario   Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  historico LancamentoHistorico[]
+
+  @@index([usuarioId])
+  @@map("importacao")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Resultados (gravados a partir do motor, P17)
+// ---------------------------------------------------------------------------------------------
+
+model ResultadoMetaMes {
+  metaId      String    @map("meta_id") @db.Uuid
+  mes         Int       @db.SmallInt
+  resultado   Decimal?  @db.Decimal(18, 6)
+  objetivo    Decimal?  @db.Decimal(18, 6)
+  atendimento Decimal?  @db.Decimal(18, 6)
+  situacao    Situacao?
+  foraPeriodo Boolean   @map("fora_periodo")
+  aviso       String?   @db.VarChar(100)
+  calculadoEm DateTime  @default(now()) @map("calculado_em") @db.Timestamptz(6)
+
+  meta Meta @relation(fields: [metaId], references: [id], onDelete: Cascade)
+
+  @@id([metaId, mes])
+  @@map("resultado_meta_mes")
+}
+
+model ResultadoMeta {
+  metaId             String   @id @map("meta_id") @db.Uuid
+  resultadoAcumulado Decimal? @map("resultado_acumulado") @db.Decimal(18, 6)
+  objetivoUsado      Decimal? @map("objetivo_usado") @db.Decimal(18, 6)
+  atendimento        Decimal  @db.Decimal(18, 6)
+  situacao           Situacao
+  memoria            Json
+  calculadoEm        DateTime @default(now()) @map("calculado_em") @db.Timestamptz(6)
+
+  meta Meta @relation(fields: [metaId], references: [id], onDelete: Cascade)
+
+  @@map("resultado_meta")
+}
+
+model ResultadoAtribuicao {
+  atribuicaoId String   @id @map("atribuicao_id") @db.Uuid
+  pontos       Decimal  @db.Decimal(18, 6)
+  calculadoEm  DateTime @default(now()) @map("calculado_em") @db.Timestamptz(6)
+
+  atribuicao MetaAtribuicao @relation(fields: [atribuicaoId], references: [id], onDelete: Cascade)
+
+  @@map("resultado_atribuicao")
+}
+
+/// Nota parcial corrente do gestor por bloco (RN-31, RN-32).
+model NotaGestor {
+  cicloId     String   @map("ciclo_id") @db.Uuid
+  usuarioId   String   @map("usuario_id") @db.Uuid
+  bloco       Bloco
+  pesoTotal   Decimal  @map("peso_total") @db.Decimal(18, 6)
+  pontos      Decimal  @db.Decimal(18, 6)
+  calculadoEm DateTime @default(now()) @map("calculado_em") @db.Timestamptz(6)
+
+  ciclo   Ciclo   @relation(fields: [cicloId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@id([cicloId, usuarioId, bloco])
+  @@index([usuarioId])
+  @@map("nota_gestor")
+}
+
+/// Fotografia da nota ao encerrar o ciclo (RN-32).
+model NotaFechamento {
+  cicloId     String   @map("ciclo_id") @db.Uuid
+  usuarioId   String   @map("usuario_id") @db.Uuid
+  bloco       Bloco
+  pontos      Decimal  @db.Decimal(18, 6)
+  dados       Json
+  congeladoEm DateTime @default(now()) @map("congelado_em") @db.Timestamptz(6)
+
+  ciclo   Ciclo   @relation(fields: [cicloId], references: [id], onDelete: Restrict)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@id([cicloId, usuarioId, bloco])
+  @@index([usuarioId])
+  @@map("nota_fechamento")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------------------------------
+
+/// Registro de alterações, somente inclusão (RN-40): UPDATE, DELETE e TRUNCATE bloqueados.
+model Auditoria {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entidade   String   @db.VarChar(60)
+  /// Texto, porque algumas tabelas têm chave composta.
+  entidadeId String   @map("entidade_id") @db.VarChar(200)
+  acao       String   @db.VarChar(30)
+  antes      Json?
+  depois     Json?
+  /// Nulo em ações do sistema (seed, jobs).
+  usuarioId  String?  @map("usuario_id") @db.Uuid
+  em         DateTime @default(now()) @db.Timestamptz(6)
+  ip         String?  @db.VarChar(45)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([entidade, entidadeId, em])
+  @@index([usuarioId])
+  @@index([em])
+  @@map("auditoria")
+}

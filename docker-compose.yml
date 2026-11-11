@@ -1,0 +1,27 @@
+# PostgreSQL de DESENVOLVIMENTO. Produção roda no servidor Windows (docs/deploy-windows.md, P16).
+# Subir: docker compose up -d   ·   Senhas e portas vêm do .env (ver .env.example).
+name: metas
+
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    restart: unless-stopped
+    ports:
+      # Só na máquina local. 5433 porque a 5432 pode estar com um PostgreSQL nativo.
+      - '127.0.0.1:${POSTGRES_PORTA:-5433}:5432'
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      METAS_OWNER_PASSWORD: ${METAS_OWNER_PASSWORD:?defina METAS_OWNER_PASSWORD no .env}
+      METAS_APP_PASSWORD: ${METAS_APP_PASSWORD:?defina METAS_APP_PASSWORD no .env}
+    volumes:
+      - metas-pgdata:/var/lib/postgresql
+      # Roda só na primeira inicialização (volume vazio): cria usuários e bancos.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d metas']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  metas-pgdata:

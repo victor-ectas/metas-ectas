@@ -171,3 +171,26 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Instantes** aceitos como `Date`, `DateTime` ou texto ISO com fuso.
 
 **Consequências.** A API (P18) chama `statusMes` em toda gravação (RN-35) com os feriados e as reaberturas do escopo do lançamento; o job (P22) só atualiza a exibição.
+
+## ADR-010 — Banco de dados de desenvolvimento, Prisma 7 e usuários
+
+- **Data:** 11/11/2026
+- **Status:** Aceita
+- **Passo:** P07
+
+**Contexto.** O P07 pede PostgreSQL local, esquema Prisma, migração inicial com as regras em SQL, seed e testes de integração. A máquina já tem um PostgreSQL 18 nativo na porta 5432, e a versão de produção ainda não está definida.
+
+**Decisão.**
+
+- **PostgreSQL de desenvolvimento no Docker** (`docker-compose.yml`): `postgres:18.4-alpine`, porta 5433 só em 127.0.0.1, volume nomeado. A versão de produção é **pendência**: conferir antes do P16 e alinhar a imagem à mesma versão major.
+- **Dois usuários**, criados pelo script de inicialização do contêiner: `metas_owner` (dono do esquema, roda migrações e testes; `CREATEDB` para o banco-sombra) e `metas_app` (aplicação; só `SELECT/INSERT/UPDATE/DELETE` por privilégios padrão). Bancos `metas` e `metas_teste`.
+- **Variáveis novas** no `.env.example` (além da seção 11): `DATABASE_URL_MIGRACAO`, `DATABASE_URL_TESTE`, `POSTGRES_PORTA`, `POSTGRES_PASSWORD`, `METAS_OWNER_PASSWORD`, `METAS_APP_PASSWORD`. `DATABASE_URL` continua sendo o usuário da aplicação.
+- **Prisma 7.10.1** (o `latest` do npm aponta para um RC da 8; fixada a última estável), com `prisma.config.ts`, generator `prisma-client` (ESM, saída em `prisma/src/generated`, gerado no `postinstall` e fora do git) e `@prisma/adapter-pg` 7.10.1 com `pg` 8.23.1. `dotenv` 18.0.10 e `tsx` 4.23.15 para config, seed e testes.
+- **`prisma/` virou o pacote `@metas/prisma`** do workspace, no mesmo lugar da seção 4: esquema, migrações, seed, testes e `criarPrismaClient(url)` para a API (P08).
+- **Ids gerados pelo banco** (`gen_random_uuid()`), para INSERT em SQL puro (seed, importação, testes) também funcionar.
+- **Regras no banco** (SQL da migração): `CHECK` de mês, período, peso interno (0, 1], peso de atribuição (0, 100], tolerância ≥ 0, casas decimais 0–6, ano 2000–2100, e-mail em minúsculas, códigos no formato das fórmulas, escopo da reabertura; índices únicos parciais (um Corporativo, um ciclo ATIVO); trigger de 2 níveis (também mesmo ciclo da mãe e sem atribuição em submeta); trigger que bloqueia `UPDATE/DELETE/TRUNCATE` em `lancamento_historico` e `auditoria` para qualquer usuário; trigger que mantém `atualizado_em`.
+- **`criado_por` e `atualizado_por`** são `uuid` sem chave estrangeira (evita dezenas de relações no Prisma); quem fez o quê fica na `auditoria`, que tem FK para `usuario`.
+- **`importacao.status`** é texto por enquanto; vira enum no P24, quando o fluxo for detalhado. `importacao.modo` usa o enum `ModoImportacao` (GESTOR, CARGA_HISTORICA) da especificação 7.3.
+- **Testes de integração** no `metas_teste`: o `globalSetup` roda `prisma migrate deploy` (não apaga nada); cada teste roda numa transação desfeita; os testes recusam qualquer banco cujo nome não termine em `_teste`.
+
+**Consequências.** `pnpm verify` passa a exigir o PostgreSQL no ar (`pnpm db:subir`). O roteiro de produção (P16) precisa criar os mesmos dois usuários com os mesmos privilégios.
