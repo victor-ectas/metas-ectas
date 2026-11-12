@@ -360,3 +360,32 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 **Pendência conhecida.** O processo de teste da API cai às vezes no Windows com o código `0xC0000409` (cerca de 1 em 10 execuções do `cadastros.test.ts`), sem mensagem, sem relatório do Node e em pontos diferentes. **Já acontecia no código do P11** (conferido com `git stash`), acontece com e sem os servidores de dev e é pior com `--pool=threads`. Não é teste errado: rodar de novo passa. Investigar à parte (atualização do Node 24, Prisma/adapter `pg`, swc).
 
 **Consequências.** O P13 grava a AST com o mesmo `parse` e deriva `meta_variavel` dela; a renomeação depende disso. Mudança em `@metas/tipos` ou `@metas/motor` continua exigindo reiniciar o `pnpm dev` (ADR-011).
+
+## ADR-018 — Metas: salvar a árvore inteira, atribuições e exclusão
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** P13
+
+**Contexto.** O P13 pede o CRUD de metas com submetas, objetivos e atribuições, validando fórmula e configuração com o motor, gravando a AST e `meta_variavel`, subindo a versão e auditando. A especificação não fixa a quem a meta departamental é atribuída, quem pode responder por ela nem o que é "ter lançamentos" (RF-18); o desenvolvedor decidiu em 12/11/2026.
+
+**Decisões do desenvolvedor.**
+
+- **Atribuição**: a meta departamental tem exatamente uma atribuição, ao gestor responsável por ela. Só a meta do Corporativo tem várias (RN-05), cada uma com seu peso.
+- **Responsável** (RN-06): qualquer Gestor ativo. A tela (P14) sugere o responsável do setor no ciclo; se for outro, a consistência (P15) avisa.
+- **Excluir** (RF-18): só se nenhuma variável usada pela meta ou pelas submetas tem valor lançado (lançamento vazio não conta, RN-08). Senão, inativar. O mesmo vale para remover uma submeta.
+
+**Decisões técnicas.**
+
+- **Meta salva inteira**: `POST /ciclos/{id}/metas` e `PUT /metas/{id}` recebem a meta-mãe com as submetas, os objetivos e as atribuições, numa transação. Os pesos internos só fecham 100% no conjunto (RF-13), então salvar submeta por submeta deixaria estados inválidos no meio. As rotas separadas `PUT /metas/{id}/objetivos` e `/atribuicoes` da especificação 10.1 ficam cobertas pelo PUT inteiro. Submeta com `id` é alterada, sem `id` é criada, e a que sumiu da lista é removida.
+- **Controle otimista**: o `PUT` leva a `versao` lida. Diferente da atual dá `CONFLITO_VERSAO` (409, com `versaoAtual`), e a gravação usa `updateMany where versao` para fechar a corrida.
+- **Validação ao salvar**: cada fórmula passa pelo `validar` do motor contra as variáveis **ativas** do ciclo (`CODIGO` do setor da meta e `SETOR.CODIGO` de qualquer setor). Erros vêm como `FORMULA_INVALIDA`, com a lista de `{ meta, mensagem, posicao }`. Depois vem o `validarMeta` (período, objetivo do último mês, tolerância da faixa, RN-23, 2 níveis, período da submeta, pesos internos), que devolve `VALIDACAO` ou `PESOS_INCONSISTENTES`. Submeta inativa não entra na soma dos pesos internos nem no cálculo.
+- **Contrato**: objetivo único (só mês 0) **ou** mensal (meses dentro do período), sem misturar. Peso da atribuição em pontos (0 < peso ≤ 100); peso interno como fração (0 < p ≤ 1). Código da meta único no ciclo, entre meta e submetas. Submeta com `submetas` é recusada com a mensagem do RN-26 (o trigger do banco continua como última proteção).
+- **Submeta herda** ciclo, setor, responsável e a regra de pontuação da mãe (RN-29; a regra não se aplica a ela) e não tem atribuição.
+- **Leitura conforme o perfil**: `GET /ciclos/{id}/metas` (com `?setor=&gestor=`) e `GET /metas/{id}` são abertos a todo usuário ativo, filtrados pelo `PoliticasService.podeVerMeta`. Escrita e `POST /formulas/validar` são só do Administrador.
+- **`POST /formulas/validar`** (RF-17): devolve os erros com posição, as variáveis usadas (id, chave, nome, tipo) e, com `valores`, o resultado de teste. Vazio ou divisão por zero dão resultado nulo, com o aviso no segundo caso.
+- **Auditoria**: um registro por operação na meta-mãe (`CRIAR`, `ALTERAR`, `EXCLUIR`), com a árvore inteira antes e depois.
+
+**Pendência (continua a do ADR-017).** A queda `0xC0000409` dos testes da API aparece com mais frequência conforme crescem os arquivos de teste. Descartados até aqui: arquivo sem banco nem Nest (0 em 15), Prisma sozinho no Node com milhares de consultas e 250 clients (0 em 18), servidores de dev e transports do pino. Fica a combinação do worker do Vitest com o Nest, o express ou o supertest; investigar num passo próprio.
+
+**Consequências.** O editor (P14) monta e envia a árvore inteira e usa `POST /formulas/validar` para o teste com valores. O P15 usa as mesmas atribuições para conferir os pesos por gestor (RN-03).

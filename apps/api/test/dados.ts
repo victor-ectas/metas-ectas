@@ -148,6 +148,14 @@ export async function limparDados(): Promise<void> {
           SELECT id FROM variavel
           WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
              OR setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores}))`;
+      // Submetas antes das mães (meta_pai_id é RESTRICT).
+      for (const submetas of [true, false]) {
+        await tx.$executeRaw`
+          DELETE FROM meta
+          WHERE (meta_pai_id IS NOT NULL) = ${submetas}
+            AND (ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
+              OR setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores}))`;
+      }
       await tx.$executeRaw`
         DELETE FROM meta
         WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
