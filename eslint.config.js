@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
@@ -23,6 +24,11 @@ export default defineConfig(
       // Módulos do NestJS são classes vazias ou estáticas com decorator: é o padrão do framework.
       '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
     },
+  },
+  {
+    // Web: regras dos hooks do React (ordem das chamadas e dependências dos efeitos).
+    files: ['apps/web/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat['recommended-latest']],
   },
   {
     // Arquivos JavaScript de configuração não fazem parte de nenhum tsconfig.

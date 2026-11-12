@@ -31,21 +31,22 @@ cp .env.example .env   # preencha as senhas (o .env nunca vai para o git)
 pnpm db:subir          # sobe o PostgreSQL no Docker (cria usuários e bancos na 1ª vez)
 pnpm db:migrar         # aplica as migrações no banco de desenvolvimento
 pnpm db:seed           # Administrador (SEED_ADMIN_EMAIL), setores, ciclo e feriados de exemplo
-pnpm dev               # compila tipos/motor/prisma e sobe a API (jobs e web entram depois)
+pnpm dev               # compila tipos/motor/prisma e sobe a API e a web (jobs entram no P22)
 ```
 
 Com o `pnpm dev` no ar:
 
+- Web: http://localhost:5173
 - API: http://localhost:3000/api/v1 — saúde em `/api/v1/saude`
 - Documentação OpenAPI (só fora de produção): http://localhost:3000/api/v1/docs
 
-Mudou algo em `packages/` ou `prisma/`? Reinicie o `pnpm dev` para a API usar o novo build. A web entra no P10.
+Mudou algo em `packages/` ou `prisma/`? Reinicie o `pnpm dev` para a API usar o novo build (a web lê o código-fonte dos pacotes e recarrega sozinha).
 
 ### Login em desenvolvimento
 
-Sem um tenant do Entra ID, use o **modo DEV** no `.env`: `AUTH_DEV=true` e `AUTH_DEV_EMAIL` com o e-mail de um usuário cadastrado (o Administrador do seed serve). A API então não pede token e entra como esse usuário; para simular outro, envie o cabeçalho `X-Usuario-Dev: <e-mail>`. O modo DEV só funciona com `NODE_ENV=development`: em qualquer outro ambiente a API não inicia.
+Sem um tenant do Entra ID, use o **modo DEV** no `.env`: `AUTH_DEV=true`, `VITE_AUTH_DEV=true` e `AUTH_DEV_EMAIL` com o e-mail de um usuário cadastrado (o Administrador do seed serve). A API então não pede token e entra como esse usuário. Na web, o chip laranja "DEV" no topo troca o usuário simulado (cabeçalho `X-Usuario-Dev: <e-mail>`). O modo DEV só funciona com `NODE_ENV=development`: em qualquer outro ambiente a API não inicia, e o build de produção da web nem inclui esse código.
 
-Com o Entra ID, preencha `ENTRA_TENANT_ID` e `ENTRA_API_AUDIENCE` e deixe `AUTH_DEV=false`. No primeiro login, quem não foi pré-cadastrado entra como Leitor inativo e só vê a própria sessão (`GET /api/v1/me`) até o Administrador ativá-lo.
+Com o Entra ID, preencha `ENTRA_TENANT_ID` e `ENTRA_API_AUDIENCE` (API) e `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID` e `VITE_API_SCOPE` (web), e deixe `AUTH_DEV=false` e `VITE_AUTH_DEV=false`. No registro do aplicativo, cadastre `http://localhost:5173/` como URI de redirecionamento do tipo **SPA** (o Entra ID aceita `http` só em `localhost`). No primeiro login, quem não foi pré-cadastrado entra como Leitor inativo e só vê a própria sessão (`GET /api/v1/me`) até o Administrador ativá-lo.
 
 ### Banco de dados
 

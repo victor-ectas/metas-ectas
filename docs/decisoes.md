@@ -258,3 +258,29 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Testes da API** usam o banco de testes real com tokens assinados por uma chave gerada no teste (JWKS local, sem rede). Os dados criados são marcados (e-mail `@api-teste.local`, setores `TAPI_*`, ciclos 2097/2098) e apagados antes e depois; para apagar a auditoria, a limpeza desliga o trigger de somente inclusão só dentro da sua transação, com o dono do esquema, só no banco `_teste`. A API passa a aplicar as migrações no banco de testes no `globalSetup`, como o `@metas/prisma`.
 
 **Consequências.** O `.env` local precisa de `AUTH_DEV=true` (com `AUTH_DEV_EMAIL` cadastrado) ou das variáveis do Entra ID para a API subir. O cadastro de usuários (P11) pré-cadastra pelo e-mail, sem `oid`.
+
+## ADR-014 — Web base: React 18, MUI 9, React Router 7, MSAL e identidade visual
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** P10
+
+**Contexto.** O P10 cria a web: Vite + React + MUI, layout responsivo, rotas, MSAL, cliente HTTP, TanStack Query, formatadores pt-BR e a página Início. A seção 3 fixa React 18; algumas bibliotecas atuais já exigem React 19.
+
+**Decisão.**
+
+- **Versões** (no `catalog`): React 18.3.1, Vite 8.3.8, `@vitejs/plugin-react` 6.3.0, MUI 9.5.0 (+ Emotion 11.14), TanStack Query 5.107.1, `@azure/msal-browser` 5.29.0 e `@azure/msal-react` 5.8.1, `@fontsource/montserrat` 5.3.0. Testes: Testing Library (react 16.3.3, dom 10.4.2, user-event 14.6.10, jest-dom 7.0.1) e jsdom 31.0.0. Lint: `eslint-plugin-react-hooks` 7.1.1 (`recommended-latest`) na web.
+- **React Router 7.18.5, não o 8**: o 8 exige React 19.
+- **`react-is` fixado em 18.3.1** (`overrides`): o MUI 9 depende do `react-is` 19, que não reconhece elementos do React 18; é a orientação do MUI para quem usa React 18.
+- **React Hook Form e ECharts** ficam para os passos que tiverem formulário (P11) e gráfico; o P10 não usa nenhum dos dois.
+- **Pacotes internos pelo código-fonte**: o Vite resolve `@metas/*` pela condição `@metas/source` no desenvolvimento e no build (ele compila o TypeScript); a web não precisa do `dist` dos pacotes. A web usa o `Decimal` e o `arredondarExibicao` do motor: um só lugar para a regra de arredondamento (5.4).
+- **Build com `NODE_ENV=production`**: o Vite aplica o `NODE_ENV` do `.env` da raiz (que é da API, `development`) ao build e empacotava o React de desenvolvimento. O script de build fixa `NODE_ENV=production`; para a mesma sintaxe funcionar no Windows, o pnpm usa o `shellEmulator`. Pacote principal: ~600 KB (~190 KB comprimidos), aceitável na rede interna (RNF-03); aviso de tamanho em 800 KB; quebrar por rota quando as telas crescerem.
+- **Configuração** (`src/config.ts`): `VITE_*` validadas com Zod; sem as do Entra ID a web mostra "Sistema mal configurado" em vez de quebrar. `VITE_API_URL` vazio = `/api/v1` (mesmo endereço, atrás do IIS).
+- **Modo DEV só no servidor do Vite**: `VITE_AUTH_DEV` vale só quando `import.meta.env.DEV`; o build de produção ignora a variável e o Vite elimina o módulo `auth/dev` e o seletor de usuário (conferido: nenhum vestígio no `dist`). O usuário simulado (cabeçalho `X-Usuario-Dev`) fica no `localStorage` e se troca pelo chip "DEV" da barra superior; trocar descarta o cache de consultas.
+- **Entra ID**: Authorization Code + PKCE por **redirecionamento** (pop-up se perde no celular), `MsalAuthenticationTemplate` leva direto ao login, cache em `sessionStorage` (padrão do MSAL), `acquireTokenSilent` com redirecionamento quando exige interação. Um 401 com `TOKEN_EXPIRADO` refaz o login; outros 401 aparecem na tela, para não entrar num ciclo de redirecionamentos se o registro do aplicativo estiver errado.
+- **Cliente HTTP**: valida a resposta com o schema de `@metas/tipos`; erro no formato 5.3 vira `ErroApi` (código, mensagem, detalhes, status); sem rede ou resposta fora do formato (ex.: página do IIS) viram `ERRO_INTERNO` com mensagem própria em português (`detalhes.motivo` = `SEM_CONEXAO` ou `RESPOSTA_INESPERADA`). Consultas não repetem erros 4xx.
+- **Layout**: menu lateral fixo a partir de 900 px (`md`) e gaveta abaixo disso (celular e tablet); itens por perfil conforme a especificação 10.2, e o usuário inativo só vê o Início. As telas ainda não feitas têm rota com aviso "em construção (passo Pxx)". A tela **Histórico** da especificação 10.2 não tem passo no plano e ficou fora do menu.
+- **Identidade visual** a partir do site da empresa (ectas.com.br): azul-marinho `#002B49` (primária), azul `#0073A8` (secundária), texto `#2F2E2E`, fundo `#F4F6F8`, fonte Montserrat servida pelo próprio sistema (sem CDN). Cores de texto e botão com contraste AA. Alvos de toque de 44 px. Trocar os tokens em `app/tema.ts` se houver manual de marca.
+- **Formatação** (`src/formatacao`): número, moeda, percentual (fração → `79,91%`), SIM/NÃO, valor por unidade (`2,64 dias`) e datas `dd/mm/aaaa` no fuso de São Paulo (data sem hora não muda de dia). Vazio vira `—` (RN-08); nunca `-0,00`.
+
+**Consequências.** A web roda inteira no modo DEV sem Entra ID. O critério "login real no Entra ID em homologação" depende do registro do aplicativo (IDs no `.env` e a URI de redirecionamento SPA cadastrada).
