@@ -48,7 +48,7 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     perfis: [DIRETORIA, ADMIN, LEITOR],
     passo: 'P26',
   },
-  { caminho: '/metas', rotulo: 'Metas', secao: 'ADMINISTRACAO', perfis: [ADMIN], passo: 'P14' },
+  { caminho: '/metas', rotulo: 'Metas', secao: 'ADMINISTRACAO', perfis: [ADMIN], passo: null },
   {
     caminho: '/variaveis',
     rotulo: 'Variáveis',

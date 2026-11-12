@@ -43,8 +43,12 @@ export interface ChamadaFalsa {
   readonly corpo: unknown;
 }
 
-/** Resposta fixa, ou função que decide pela chamada (ex.: devolver o que foi enviado). */
-export type Resposta = RespostaFalsa | Error | ((chamada: ChamadaFalsa) => RespostaFalsa);
+/**
+ * Resposta fixa, ou função que decide pela chamada (ex.: devolver o que foi enviado). A função pode
+ * devolver uma promessa, para simular uma resposta que demora.
+ */
+export type Resposta =
+  RespostaFalsa | Error | ((chamada: ChamadaFalsa) => RespostaFalsa | Promise<RespostaFalsa>);
 
 /**
  * `fetch` que responde por caminho (sem o endereço base) e registra as chamadas. A chave pode ter
@@ -76,8 +80,9 @@ export function fetchFalso(respostas: Readonly<Record<string, Resposta>>) {
       return Promise.reject(new Error(`Sem resposta para ${metodo} ${url}`));
     }
     if (encontrada instanceof Error) return Promise.reject(encontrada);
-    const resposta = typeof encontrada === 'function' ? encontrada(chamada) : encontrada;
     return Promise.resolve(
+      typeof encontrada === 'function' ? encontrada(chamada) : encontrada,
+    ).then((resposta) =>
       resposta.status === 204
         ? new Response(null, { status: 204 })
         : new Response(JSON.stringify(resposta.corpo), {

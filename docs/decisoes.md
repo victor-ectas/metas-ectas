@@ -389,3 +389,58 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 **Pendência (continua a do ADR-017).** A queda `0xC0000409` dos testes da API aparece com mais frequência conforme crescem os arquivos de teste. Descartados até aqui: arquivo sem banco nem Nest (0 em 15), Prisma sozinho no Node com milhares de consultas e 250 clients (0 em 18), servidores de dev e transports do pino. Fica a combinação do worker do Vitest com o Nest, o express ou o supertest; investigar num passo próprio.
 
 **Consequências.** O editor (P14) monta e envia a árvore inteira e usa `POST /formulas/validar` para o teste com valores. O P15 usa as mesmas atribuições para conferir os pesos por gestor (RN-03).
+
+## ADR-019 — Testes da API com conexões reaproveitadas (queda 0xC0000409 no Windows)
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** correção entre P13 e P14
+
+**Contexto.** Desde o P11, o processo de teste da API caía às vezes no Windows com o código `0xC0000409`, sem mensagem e sem relatório do Node (ADR-017 e ADR-018). Com mais arquivos de teste, chegou a derrubar cerca de metade das rodadas completas.
+
+**Investigação** (cada experimento repetido de 10 a 15 vezes):
+
+| Experimento                                                  | Quedas   |
+| ------------------------------------------------------------ | -------- |
+| Teste sem banco e sem Nest                                   | 0/15     |
+| Prisma sozinho no Vitest (milhares de consultas)             | 0/10     |
+| `jose` sozinho (chaves RSA, assinar e verificar)             | 0/10     |
+| Nest subindo e fechando, sem requisições                     | 0/10     |
+| HTTP puro + supertest, sem banco                             | 0/10     |
+| Nest + supertest numa rota sem banco                         | 0/10     |
+| Nest + supertest em `/saude` (consulta o banco)              | 1 a 2/10 |
+| HTTP puro + supertest + uma consulta Prisma por requisição   | 2/10     |
+| O mesmo com o `dist` do Prisma (sem a transformação do Vite) | 3/10     |
+| O mesmo no Node puro, fora do Vitest                         | 0/10     |
+| O mesmo num processo filho com `fork` e IPC, fora do Vitest  | 1/12     |
+| O mesmo com o servidor escutando uma vez só (porta fixa)     | 3/15     |
+| **O mesmo com conexões HTTP reaproveitadas (keep-alive)**    | **0/15** |
+
+**Causa.** É um defeito do Node 24.15 no Windows, não do código do sistema. Um processo filho com canal IPC (é assim que o Vitest roda os testes) que abre e fecha milhares de conexões TCP, ao mesmo tempo que fala com o PostgreSQL, morre de forma nativa. O supertest abria uma conexão nova por requisição (e, com `request(app.getHttpServer())`, também um servidor novo).
+
+**Decisão.** Nos testes da API, `criarApp` sobe a aplicação uma vez por arquivo (`app.listen(0, '127.0.0.1')`), e o helper `cliente(app)` faz as requisições pelo endereço, com um `http.Agent` keep-alive compartilhado. Todos os `request(app.getHttpServer())` viraram `cliente(app)`. Nada no código da aplicação mudou.
+
+**Resultado.** 8 rodadas completas da API (178 testes) sem nenhuma queda, e dois `pnpm verify` seguidos verdes. Uma falha isolada do teste "primeiro acesso simultâneo" apareceu uma vez logo depois da troca e não se repetiu em mais de 50 execuções. Um teste de estresse com 300 primeiros acessos simultâneos (10 por vez) deu 200 em todos; o teste agora mostra o código do erro caso volte a falhar.
+
+**Consequências.** Testes novos da API usam `cliente(app)`, nunca `request(app.getHttpServer())`. Quando houver uma versão nova do Node 24 LTS, vale repetir o experimento "HTTP + Prisma sem keep-alive" para ver se o defeito foi corrigido.
+
+## ADR-020 — Editor de metas na web
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** P14
+
+**Contexto.** O P14 pede a lista de metas e o editor em 5 etapas (o que é; variáveis; fórmula com chips e teste; acumulação e período; objetivo, operador, peso e pontuação), com a frase "Bate quando…", submetas com a soma dos pesos ao vivo e a prévia pelo motor no navegador. O protótipo citado na especificação como referência visual não está no repositório; o desenho segue a identidade da ECTAS (ADR-015).
+
+**Decisões técnicas.**
+
+- **Rotas**: `/metas` (lista por ciclo, com filtros de setor, gestor e busca), `/metas/nova?ciclo=` e `/metas/:id`. Ciclo encerrado abre só para consulta.
+- **Um formulário para a árvore**: um único `useForm` com `raiz` e `submetas[]`, com os mesmos campos de cálculo (`CamposCalculo`). Uma barra de "partes da meta" escolhe o que está sendo editado (meta principal ou submeta), e as 5 etapas valem para a parte escolhida. A soma dos pesos internos (submetas ativas, mais o resultado próprio da mãe quando há fórmula) aparece ao vivo, dizendo quanto falta ou passou.
+- **Números como foram digitados**: o formulário guarda texto em pt-BR (percentual de 0 a 100), e `paraEntrada` converte com `Decimal` para o formato da API (ponto decimal, percentual como fração). Objetivos mensais ficam numa lista de 12 posições. Antes de enviar, os problemas de digitação e os do `MetaEntradaSchema` aparecem juntos, com o nome da parte e do campo. O corpo enviado é a saída do schema (código em maiúsculas).
+- **Prévia com o motor**: a etapa Fórmula valida ao vivo com `validar` (o mesmo da API), mostra os erros em português com a posição e testa com valores pelo `avaliar` (percentual digitado de 0 a 100; vazio e divisão por zero dão resultado vazio). Os chips inserem variáveis, operadores e funções na posição do cursor.
+- **Frase-resumo** (`fraseBateQuando`, `fraseVale`): funções puras, testadas com CT-01, CT-03, CT-04 e CT-16; a do resultado acompanha a parte editada.
+- **Regras na tela** (a API decide): responsável sugerido pelo do setor no ciclo; meta departamental com uma atribuição só, ao responsável (a tela mantém isso sozinha); faixa sempre tudo ou nada; aviso de RN-23 com objetivo ≤ 0; aviso quando uma razão de SOMAs não usa "fórmula sobre os acumulados".
+- **Salvar com `mutateAsync`**: depois de salvar, a meta recarrega com a versão nova e o editor é remontado (a `key` inclui a versão). Os callbacks passados a `mutate` de um componente desmontado não são chamados, e a tela não voltava para a lista. Isso foi visto no navegador real e coberto por um teste que atrasa a recarga das variáveis, como no navegador.
+- **Responsivo**: no desktop, Stepper com as 5 etapas e o resumo fixo à direita (≥ 1200 px); no tablet e no celular, "Etapa X de 5" e o resumo abaixo. Conferido em 1440, 768 e 360 px, sem rolagem horizontal. No MUI 9, os botões do Stepper têm papel `tab` (dentro de `tablist`).
+
+**Consequências.** O fetch falso dos testes da web aceita respostas que demoram (promessa). A tela de consistência (P15) reaproveita as atribuições e os pesos. Duas metas de exemplo (FISCAL_PRAZO e FAB_ENGAJAMENTO, com 5 submetas) ficaram no banco de dev.
