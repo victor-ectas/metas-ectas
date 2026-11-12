@@ -39,10 +39,19 @@ export interface ChamadaFalsa {
   readonly url: string;
   readonly metodo: string;
   readonly cabecalhos: Record<string, string>;
+  /** Corpo enviado, já convertido do JSON. */
+  readonly corpo: unknown;
 }
 
-/** `fetch` que responde por caminho (sem o endereço base) e registra as chamadas. */
-export function fetchFalso(respostas: Readonly<Record<string, RespostaFalsa | Error>>) {
+/** Resposta fixa, ou função que decide pela chamada (ex.: devolver o que foi enviado). */
+export type Resposta = RespostaFalsa | Error | ((chamada: ChamadaFalsa) => RespostaFalsa);
+
+/**
+ * `fetch` que responde por caminho (sem o endereço base) e registra as chamadas. A chave pode ter
+ * o método (`POST /usuarios`) e a query (`/usuarios?pagina=1`); sem eles, vale para qualquer um.
+ * Procura da mais específica para a mais geral.
+ */
+export function fetchFalso(respostas: Readonly<Record<string, Resposta>>) {
   const chamadas: ChamadaFalsa[] = [];
   const fetch = (entrada: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url =
@@ -51,19 +60,30 @@ export function fetchFalso(respostas: Readonly<Record<string, RespostaFalsa | Er
         : entrada instanceof URL
           ? entrada.toString()
           : entrada.url;
-    chamadas.push({
+    const metodo = init?.method ?? 'GET';
+    const chamada: ChamadaFalsa = {
       url,
-      metodo: init?.method ?? 'GET',
+      metodo,
       cabecalhos: { ...(init?.headers as Record<string, string> | undefined) },
-    });
-    const resposta = respostas[url.replace(API, '')];
-    if (resposta === undefined) return Promise.reject(new Error(`Sem resposta para ${url}`));
-    if (resposta instanceof Error) return Promise.reject(resposta);
+      corpo: typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined,
+    };
+    chamadas.push(chamada);
+    const caminho = url.replace(API, '');
+    const semQuery = caminho.split('?')[0] ?? caminho;
+    const chaves = [`${metodo} ${caminho}`, caminho, `${metodo} ${semQuery}`, semQuery];
+    const encontrada = chaves.map((chave) => respostas[chave]).find((r) => r !== undefined);
+    if (encontrada === undefined) {
+      return Promise.reject(new Error(`Sem resposta para ${metodo} ${url}`));
+    }
+    if (encontrada instanceof Error) return Promise.reject(encontrada);
+    const resposta = typeof encontrada === 'function' ? encontrada(chamada) : encontrada;
     return Promise.resolve(
-      new Response(JSON.stringify(resposta.corpo), {
-        status: resposta.status,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      resposta.status === 204
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify(resposta.corpo), {
+            status: resposta.status,
+            headers: { 'Content-Type': 'application/json' },
+          }),
     );
   };
   return { fetch, chamadas };
@@ -75,7 +95,7 @@ export function erroJson(codigo: ErroApiJson['codigo'], mensagem: string): ErroA
 
 /** Monta o sistema inteiro (rotas, layout, páginas) numa largura de tela e num endereço. */
 export function renderizarApp(opcoes: {
-  readonly respostas: Readonly<Record<string, RespostaFalsa | Error>>;
+  readonly respostas: Readonly<Record<string, Resposta>>;
   readonly largura?: number;
   readonly caminho?: string;
   readonly autenticacao?: Autenticacao;

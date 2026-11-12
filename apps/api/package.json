@@ -25,6 +25,7 @@
     "vitest": "catalog:"
   },
   "dependencies": {
+    "@metas/motor": "workspace:*",
     "@metas/prisma": "workspace:*",
     "@metas/tipos": "workspace:*",
     "@nestjs/common": "catalog:",

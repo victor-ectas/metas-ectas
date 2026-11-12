@@ -5,6 +5,7 @@ import { type ReactNode, useMemo } from 'react';
 import { criarClienteApi } from '../api/cliente';
 import { ClienteApiContexto } from '../api/contexto';
 import { type Autenticacao, AutenticacaoContexto } from '../auth/autenticacao';
+import { ProvedorAvisos } from '../componentes/avisos';
 import { tema } from './tema';
 
 export function ProvedorTema(props: { readonly children: ReactNode }) {
@@ -41,7 +42,9 @@ export function Provedores(props: {
     <ProvedorTema>
       <AutenticacaoContexto.Provider value={autenticacao}>
         <ClienteApiContexto.Provider value={cliente}>
-          <QueryClientProvider client={props.queryClient}>{props.children}</QueryClientProvider>
+          <QueryClientProvider client={props.queryClient}>
+            <ProvedorAvisos>{props.children}</ProvedorAvisos>
+          </QueryClientProvider>
         </ClienteApiContexto.Provider>
       </AutenticacaoContexto.Provider>
     </ProvedorTema>

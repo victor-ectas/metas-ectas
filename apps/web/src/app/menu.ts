@@ -82,7 +82,7 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     rotulo: 'Cadastros',
     secao: 'ADMINISTRACAO',
     perfis: [ADMIN],
-    passo: 'P11',
+    passo: null,
   },
 ];
 

@@ -14,6 +14,9 @@ export const DOMINIO = 'api-teste.local';
 const PREFIXO_SETOR = 'TAPI_';
 const ANOS = [2097, 2098];
 export const [ANO_ATIVO, ANO_RASCUNHO] = ANOS as [number, number];
+/** Feriados de teste: 2001 (meses já fechados, para a trava) e os anos de teste. */
+export const ANO_PASSADO = 2001;
+const ANOS_FERIADO = [ANO_PASSADO, ...ANOS];
 
 let app: PrismaClient | undefined;
 
@@ -45,8 +48,10 @@ export async function criarSetor(nome: string) {
   return banco().setor.create({ data: { codigo, nome } });
 }
 
-export async function criarCiclo(ano: number, status: 'ATIVO' | 'RASCUNHO') {
-  return banco().ciclo.create({ data: { ano, status } });
+export async function criarCiclo(ano: number, status: 'ATIVO' | 'RASCUNHO' | 'ENCERRADO') {
+  return banco().ciclo.create({
+    data: { ano, status, encerradoEm: status === 'ENCERRADO' ? new Date() : null },
+  });
 }
 
 /**
@@ -72,8 +77,16 @@ export async function limparDados(): Promise<void> {
         DELETE FROM leitor_setor
         WHERE setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores})
            OR usuario_id IN (SELECT id FROM usuario WHERE email LIKE ${emails})`;
+      await tx.$executeRaw`
+        DELETE FROM variavel
+        WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
+           OR setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores})`;
       await tx.$executeRaw`DELETE FROM ciclo WHERE ano = ANY(${ANOS})`;
+      await tx.$executeRaw`
+        DELETE FROM feriado WHERE extract(year FROM data)::int = ANY(${ANOS_FERIADO})`;
       await tx.$executeRaw`DELETE FROM setor WHERE codigo LIKE ${setores}`;
+      // superior_id é RESTRICT: desfaz a hierarquia antes de apagar.
+      await tx.$executeRaw`UPDATE usuario SET superior_id = NULL WHERE email LIKE ${emails}`;
       await tx.$executeRaw`DELETE FROM usuario WHERE email LIKE ${emails}`;
     });
   } finally {

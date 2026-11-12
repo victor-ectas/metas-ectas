@@ -19,6 +19,10 @@ export const CodigoErro = {
   IMPORTACAO_INVALIDA: 'IMPORTACAO_INVALIDA',
   /** Limite de taxa nas rotas de escrita (CLAUDE.md 6). Não está entre os códigos iniciais da 5.3. */
   MUITAS_REQUISICOES: 'MUITAS_REQUISICOES',
+  /** Código, e-mail, ano ou data que já existe (cadastros, P11). */
+  JA_EXISTE: 'JA_EXISTE',
+  /** Exclusão de algo que tem registros associados: só pode ser inativado (P11). */
+  EM_USO: 'EM_USO',
   ERRO_INTERNO: 'ERRO_INTERNO',
 } as const;
 export type CodigoErro = (typeof CodigoErro)[keyof typeof CodigoErro];

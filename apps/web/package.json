@@ -17,6 +17,7 @@
     "@emotion/react": "catalog:",
     "@emotion/styled": "catalog:",
     "@fontsource/montserrat": "catalog:",
+    "@hookform/resolvers": "catalog:",
     "@metas/motor": "workspace:*",
     "@metas/tipos": "workspace:*",
     "@mui/icons-material": "catalog:",
@@ -24,6 +25,7 @@
     "@tanstack/react-query": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-hook-form": "catalog:",
     "react-router": "catalog:",
     "zod": "catalog:"
   },

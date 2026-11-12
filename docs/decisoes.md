@@ -305,3 +305,30 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Diretrizes de interface** (Vercel Web Interface Guidelines) conferidas: foco visível (`:focus-visible` azul; turquesa sobre o marinho), imagens com largura e altura, `aria-hidden` nas ondas e ícones decorativos, `text-wrap: balance` nos títulos, `overscroll-behavior: contain` na gaveta, `touch-action: manipulation`, áreas seguras do celular (`viewport-fit=cover` + `env(safe-area-inset-*)`), `theme-color` igual à barra do celular, `translate="no"` na marca. Desvio consciente: os números são formatados à mão sobre `Decimal` em vez de `Intl.NumberFormat`, que exigiria converter para `number` (5.4).
 
 **Consequências.** Os tokens ficam em `apps/web/src/app/tema.ts` (`CORES`); um manual de marca, se aparecer, muda só esse arquivo e os PNGs de `assets/`. O logotipo é da empresa e fica no repositório interno.
+
+## ADR-016 — Cadastros básicos: regras, erros e componentes da web
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** P11
+
+**Contexto.** O P11 pede API e telas de usuários, setores, ciclos, feriados, responsáveis por setor no ciclo e setores do Leitor, só para o Administrador e com auditoria. Algumas regras não estavam fixadas; o desenvolvedor decidiu em 12/11/2026.
+
+**Decisões do desenvolvedor.**
+
+- **Exclusão**: usuários e setores podem ser inativados e também excluídos, mas só sem nenhum registro associado. O setor Corporativo nunca é inativado nem excluído. Setores liberados ao Leitor são configuração dele e saem junto na exclusão. Quem já entrou no sistema tem registro associado (a auditoria do primeiro acesso) e só pode ser inativado.
+- **Feriados**: alteração que mude o prazo de fechamento de um mês já fechado é recusada (`MES_FECHADO`). Regra exata: um feriado no mês X conta dias úteis do fechamento do mês X−1; compara-se o prazo antes e depois da mudança e, se mudou e o menor dos dois já passou, recusa. Feriado em fim de semana ou depois do prazo não muda nada e é aceito. Corrigir o passado é com a reabertura (P23).
+- **Gerente Geral**: só no perfil Diretoria; pode haver vários.
+- **Responsável por setor**: só Gestor ativo. Responsável (por setor ou por variável do Corporativo) em ciclo não encerrado não pode ser inativado nem mudar de perfil antes de ser trocado.
+
+**Decisões técnicas.**
+
+- **Rotas** (só Admin, `@Perfis(ADMIN)` decidido pelo `PoliticasService`): `GET/POST /usuarios`, `GET/PUT/DELETE /usuarios/{id}`, `PUT /usuarios/{id}/setores-leitor`, `GET/POST /setores`, `PUT/DELETE /setores/{id}`, `GET/POST /ciclos`, `GET/PUT /ciclos/{id}/responsaveis`, `GET /feriados?ano`, `POST /feriados`, `PUT/DELETE /feriados/{id}`. `GET /usuarios` paginado com busca, perfil e situação; os outros são listas pequenas.
+- **Códigos de erro novos** em `@metas/tipos`: `JA_EXISTE` (409, índice único) e `EM_USO` (409, chave estrangeira na exclusão). `traduzirErroBanco` lê o nome do índice que o Prisma 7 com adapter `pg` devolve (`meta.driverAdapterError.cause.constraint.index`) e dá a mensagem em português; o nome do índice não vai para a resposta (5.3).
+- **Auditoria**: `AuditoriaService.registrar(tx, autor, …)` grava na mesma transação; `@AutorDaRequisicao()` dá o usuário e o IP. Entidades `usuario`, `setor`, `ciclo`, `feriado` e `setor_responsavel` (id `cicloId:setorId`).
+- **Proteções extras**: o Administrador não pode se inativar, tirar o próprio perfil de Admin nem se excluir; superior imediato não pode ser o próprio usuário nem criar ciclo na hierarquia; código e "Corporativo" de um setor não mudam depois que ele tem variáveis ou metas (o código está nas fórmulas e o Corporativo define o bloco, RN-02).
+- **API depende do motor** (`@metas/motor`) para calcular o prazo de fechamento na trava de feriados.
+- **Web**: React Hook Form 7.92.0 + `@hookform/resolvers` 7.0.6 com os mesmos schemas Zod da API; erros de validação da API (`detalhes.campos`) vão para o campo certo. Componentes reutilizáveis: `ListaResponsiva` (tabela no desktop, cartões no celular), `CabecalhoPagina`/`CabecalhoSecao`, `DialogoConfirmacao` (toda exclusão pede confirmação), `ProvedorAvisos` (confirmação com `role="status"`), `SeloSituacao`, campos `CampoTexto`/`CampoSelecao`/`CampoChave`. A aba da tela fica na URL (`/cadastros?aba=setores`).
+- **Atenção no MUI**: em `sx`, o número `1` em `width` vale 100%; use `'1px'`/`'1%'`.
+
+**Consequências.** As próximas telas (variáveis, metas, lançamentos) reutilizam os mesmos componentes e o mesmo padrão de erro. Mudança em `@metas/tipos` ou `@metas/motor` exige reiniciar o `pnpm dev` para a API (ADR-011).
