@@ -1,13 +1,12 @@
-import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import { configTeste, criarApp } from './apoio.js';
+import { configTeste, criarApp, cliente } from './apoio.js';
 
 describe('GET /api/v1/saude (RNF-14)', () => {
   it('200 com o banco respondendo, pública e sem autenticação', async () => {
     const app = await criarApp();
     try {
-      const r = await request(app.getHttpServer()).get('/api/v1/saude');
+      const r = await cliente(app).get('/api/v1/saude');
       expect(r.status).toBe(200);
       expect(r.body).toEqual({
         status: 'ok',
@@ -24,7 +23,7 @@ describe('GET /api/v1/saude (RNF-14)', () => {
       configTeste({ DATABASE_URL: 'postgresql://metas_app:x@127.0.0.1:1/metas_teste' }),
     );
     try {
-      const r = await request(app.getHttpServer()).get('/api/v1/saude');
+      const r = await cliente(app).get('/api/v1/saude');
       expect(r.status).toBe(503);
       expect(r.body).toMatchObject({
         status: 'indisponivel',

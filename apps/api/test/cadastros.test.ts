@@ -10,10 +10,9 @@ import {
   SetorSchema,
   UsuarioSchema,
 } from '@metas/tipos';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { configTeste, criarApp, emitirToken } from './apoio.js';
+import { configTeste, criarApp, emitirToken, cliente } from './apoio.js';
 import {
   ANO_ATIVO,
   ANO_PASSADO,
@@ -37,7 +36,7 @@ let app: NestExpressApplication;
 let admin: UsuarioBanco;
 let tokenAdmin: string;
 
-const http = () => request(app.getHttpServer());
+const http = () => cliente(app);
 const comoAdmin = {
   get: (url: string) => http().get(`/api/v1${url}`).set('Authorization', `Bearer ${tokenAdmin}`),
   post: (url: string, corpo: object) =>

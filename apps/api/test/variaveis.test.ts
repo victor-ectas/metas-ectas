@@ -11,7 +11,7 @@ import {
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { configTeste, criarApp, emitirToken } from './apoio.js';
+import { configTeste, criarApp, emitirToken, cliente } from './apoio.js';
 import {
   ANO_ATIVO,
   ANO_RASCUNHO,
@@ -40,7 +40,7 @@ let cicloId: string;
 let setorA: SetorBanco;
 let setorB: SetorBanco;
 
-const http = () => request(app.getHttpServer());
+const http = () => cliente(app);
 const autorizar = (r: request.Test) => r.set('Authorization', `Bearer ${tokenAdmin}`);
 const comoAdmin = {
   get: (url: string) => autorizar(http().get(`/api/v1${url}`)),

@@ -1,8 +1,12 @@
 import 'reflect-metadata';
 
-import type { Type } from '@nestjs/common';
+import { Agent } from 'node:http';
+import type { AddressInfo } from 'node:net';
+
+import type { INestApplication, Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import request from 'supertest';
 import { createLocalJWKSet, exportJWK, generateKeyPair, type JWTPayload, SignJWT } from 'jose';
 
 import { AppModule } from '../src/app.module.js';
@@ -99,6 +103,32 @@ export async function criarApp(
     .compile();
   const app = modulo.createNestApplication<NestExpressApplication>({ bufferLogs: true });
   configurarApp(app, config);
-  await app.init();
+  // Escuta uma vez, numa porta livre: ver `cliente`.
+  await app.listen(0, '127.0.0.1');
   return app;
+}
+
+/**
+ * Conexões reaproveitadas entre as requisições dos testes. Abrir e fechar milhares de conexões
+ * TCP dentro do worker do Vitest derruba o processo no Windows com o Node 24.15
+ * (0xC0000409, sem mensagem); reaproveitando, não cai. Detalhes no ADR-019.
+ */
+const AGENTE = new Agent({ keepAlive: true });
+
+type Metodo = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'options' | 'head';
+
+/** Requisições à API de teste já no ar (`criarApp`), pelo endereço e com conexões reaproveitadas. */
+export function cliente(app: INestApplication): Record<Metodo, (caminho: string) => request.Test> {
+  const { port } = (app.getHttpServer() as { address(): AddressInfo }).address();
+  const base = request(`http://127.0.0.1:${String(port)}`);
+  const metodo = (nome: Metodo) => (caminho: string) => base[nome](caminho).agent(AGENTE);
+  return {
+    get: metodo('get'),
+    post: metodo('post'),
+    put: metodo('put'),
+    patch: metodo('patch'),
+    delete: metodo('delete'),
+    options: metodo('options'),
+    head: metodo('head'),
+  };
 }

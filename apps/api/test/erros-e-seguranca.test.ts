@@ -1,14 +1,13 @@
 import { Body, Controller, ForbiddenException, Get, Post } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type ErroApi as CorpoErro, ErroApiSchema, MesSchema } from '@metas/tipos';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { Publica } from '../src/auth/decoradores.js';
 import { ErroApi } from '../src/comum/erro-api.js';
 import { ValidacaoZod } from '../src/comum/validacao-zod.pipe.js';
-import { configTeste, criarApp, ORIGEM_WEB } from './apoio.js';
+import { configTeste, criarApp, ORIGEM_WEB, cliente } from './apoio.js';
 
 const CorpoTeste = z.object({ mes: MesSchema });
 
@@ -66,7 +65,7 @@ describe('formato único de erro (CLAUDE.md 5.3)', () => {
     await app.close();
   });
 
-  const http = () => request(app.getHttpServer());
+  const http = () => cliente(app);
 
   it('ErroApi: código, mensagem, detalhes e status do código', async () => {
     const r = await http().get('/api/v1/teste/erro-api');
@@ -159,7 +158,7 @@ describe('requestId, cabeçalhos de segurança e CORS', () => {
     await app.close();
   });
 
-  const http = () => request(app.getHttpServer());
+  const http = () => cliente(app);
 
   it('gera um X-Request-Id por requisição', async () => {
     const a = await http().get('/api/v1/teste/leitura');
@@ -218,10 +217,10 @@ describe('em produção', () => {
   it('não publica a documentação OpenAPI e liga o CSP completo', async () => {
     const app = await criarApp(configTeste({ NODE_ENV: 'production' }), [TesteController]);
     try {
-      const docs = await request(app.getHttpServer()).get('/api/v1/docs-json');
+      const docs = await cliente(app).get('/api/v1/docs-json');
       expect(docs.status).toBe(404);
       expect(erro(docs).codigo).toBe('NAO_ENCONTRADO');
-      const r = await request(app.getHttpServer()).get('/api/v1/teste/leitura');
+      const r = await cliente(app).get('/api/v1/teste/leitura');
       expect(r.headers['content-security-policy']).toMatch(/default-src 'self'/);
     } finally {
       await app.close();
@@ -239,7 +238,7 @@ describe('limite de taxa nas rotas de escrita (CLAUDE.md 6)', () => {
   });
 
   it('bloqueia a escrita acima do limite com 429 MUITAS_REQUISICOES', async () => {
-    const http = request(app.getHttpServer());
+    const http = cliente(app);
     for (let i = 0; i < 3; i++) {
       expect((await http.post('/api/v1/teste/escrita')).status).toBe(201);
     }
@@ -253,7 +252,7 @@ describe('limite de taxa nas rotas de escrita (CLAUDE.md 6)', () => {
   });
 
   it('não limita leituras', async () => {
-    const http = request(app.getHttpServer());
+    const http = cliente(app);
     for (let i = 0; i < 10; i++) {
       expect((await http.get('/api/v1/teste/leitura')).status).toBe(200);
     }

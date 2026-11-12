@@ -11,10 +11,9 @@ import {
   MetaSchema,
   ValidarFormulaSaidaSchema,
 } from '@metas/tipos';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { configTeste, criarApp, emitirToken } from './apoio.js';
+import { configTeste, criarApp, emitirToken, cliente } from './apoio.js';
 import {
   ANO_ATIVO,
   banco,
@@ -43,7 +42,7 @@ let fiscal: SetorBanco;
 let rh: SetorBanco;
 let corporativoId: string;
 
-const http = () => request(app.getHttpServer());
+const http = () => cliente(app);
 const como = (token: string) => ({
   get: (url: string) => http().get(`/api/v1${url}`).set('Authorization', `Bearer ${token}`),
   post: (url: string, corpo: object) =>

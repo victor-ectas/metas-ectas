@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { Controller, Get } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type ErroApi as CorpoErro, type Sessao, SessaoSchema } from '@metas/tipos';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Perfis } from '../src/auth/decoradores.js';
@@ -15,6 +14,7 @@ import {
   emitirToken,
   ORIGEM_WEB,
   OUTRO_TENANT,
+  cliente,
 } from './apoio.js';
 import {
   ANO_ATIVO,
@@ -58,7 +58,7 @@ type Usuario = Awaited<ReturnType<typeof criarUsuario>>;
 const tokenDe = (u: Usuario) => emitirToken({ oid: u.entraOid, preferred_username: u.email });
 
 let app: NestExpressApplication;
-const http = () => request(app.getHttpServer());
+const http = () => cliente(app);
 
 beforeAll(async () => {
   await limparDados();
@@ -200,7 +200,13 @@ describe('primeiro acesso (RF-02)', () => {
     const respostas = await Promise.all(
       [1, 2, 3].map(() => http().get('/api/v1/me').set('Authorization', `Bearer ${token}`)),
     );
-    expect(respostas.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(
+      respostas.map((r) => [r.status, (r.body as { codigo?: string }).codigo ?? null]),
+    ).toEqual([
+      [200, null],
+      [200, null],
+      [200, null],
+    ]);
     expect(await banco().usuario.count({ where: { email } })).toBe(1);
   });
 
@@ -385,7 +391,7 @@ describe('modo DEV de autenticação', () => {
   afterAll(async () => {
     await appDev.close();
   });
-  const httpDev = () => request(appDev.getHttpServer());
+  const httpDev = () => cliente(appDev);
 
   it('sem token, entra como o usuário de AUTH_DEV_EMAIL', async () => {
     const r = await httpDev().get('/api/v1/me');
@@ -411,7 +417,7 @@ describe('modo DEV de autenticação', () => {
 
   it('o CORS libera X-Usuario-Dev só no modo DEV', async () => {
     const preflight = (servidor: NestExpressApplication) =>
-      request(servidor.getHttpServer())
+      cliente(servidor)
         .options('/api/v1/me')
         .set('Origin', ORIGEM_WEB)
         .set('Access-Control-Request-Method', 'GET')
