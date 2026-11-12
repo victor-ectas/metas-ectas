@@ -84,10 +84,14 @@ describe('Início', () => {
       respostas: { '/me': { status: 200, corpo: sessaoDe('GESTOR', { setores: SETORES }) } },
     });
     await screen.findByRole('heading', { name: 'Olá, Julia' });
-    expect(screen.getByText('Gestor')).toBeInTheDocument();
-    expect(screen.getByText('julia@empresa.com.br')).toBeInTheDocument();
-    expect(screen.getByText('Recursos Humanos')).toBeInTheDocument();
-    expect(screen.getByText('Tecnologia')).toBeInTheDocument();
+    expect(
+      screen.getByText('Lance os resultados de cada mês e acompanhe suas metas.'),
+    ).toBeInTheDocument();
+    const acesso = screen.getByRole('region', { name: 'Seu acesso' });
+    expect(within(acesso).getByText('Gestor')).toBeInTheDocument();
+    expect(within(acesso).getByText('julia@empresa.com.br')).toBeInTheDocument();
+    expect(within(acesso).getByText('Recursos Humanos')).toBeInTheDocument();
+    expect(within(acesso).getByText('Tecnologia')).toBeInTheDocument();
     const atalhos = screen.getByRole('region', { name: 'Atalhos' });
     expect(within(atalhos).getByRole('link', { name: 'Lançamentos' })).toHaveAttribute(
       'href',
@@ -98,7 +102,10 @@ describe('Início', () => {
   it('Administrador vê todos os setores', async () => {
     renderizarApp({ respostas: { '/me': { status: 200, corpo: sessaoDe('ADMIN') } } });
     expect(await screen.findByText('Todos os setores')).toBeInTheDocument();
-    expect(screen.getByText('Administrador')).toBeInTheDocument();
+    const acesso = screen.getByRole('region', { name: 'Seu acesso' });
+    expect(within(acesso).getByText('Administrador')).toBeInTheDocument();
+    // Barra superior do desktop: nome e perfil de quem está logado.
+    expect(screen.getByRole('banner')).toHaveTextContent('Julia Martins SouzaAdministrador');
   });
 
   it('Leitor sem setores liberados', async () => {
@@ -111,6 +118,8 @@ describe('Início', () => {
     corpo.usuario.gerenteGeral = true;
     renderizarApp({ respostas: { '/me': { status: 200, corpo } } });
     expect(await screen.findByText('Seu acesso ainda não foi liberado')).toBeInTheDocument();
+    // Inativo não vê a descrição do que o perfil faz.
+    expect(screen.queryByText(/Consulte os resultados/)).not.toBeInTheDocument();
     expect(screen.getByText('Leitor · Gerente Geral (inativo)')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Atalhos' })).not.toBeInTheDocument();
     const menu = screen.getByRole('navigation', { name: 'Menu principal' });

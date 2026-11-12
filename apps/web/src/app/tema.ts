@@ -3,48 +3,100 @@ import '@fontsource/montserrat/500.css';
 import '@fontsource/montserrat/600.css';
 import '@fontsource/montserrat/700.css';
 
-import { createTheme } from '@mui/material/styles';
+import { alpha, createTheme } from '@mui/material/styles';
 
 /**
- * Identidade visual a partir do site da empresa (ectas.com.br): azul-marinho, azul e petróleo,
- * texto grafite e fonte Montserrat (ADR-014). A fonte é servida pelo próprio sistema, sem CDN.
- * Contraste AA (RNF-11): todas as cores de texto e de botão abaixo passam de 4,5:1 sobre branco.
+ * Identidade visual da ECTAS Saneamento (ADR-015). As três cores principais vêm do logotipo
+ * oficial (as três ondas); a fonte é a Montserrat do site ectas.com.br, servida pelo próprio
+ * sistema, sem CDN.
+ *
+ * Contraste (RNF-11, AA): turquesa só como decoração e indicador sobre fundo claro (2,3:1 no
+ * branco); como texto, só sobre o marinho (5,9:1). Azul e marinho passam de 4,5:1 no branco.
  */
 export const CORES = {
-  marinho: '#002B49',
+  /** Onda maior do logotipo: menu lateral, títulos. */
+  marinho: '#13314D',
+  /** Marinho mais fundo, para a última onda do menu. */
+  abismo: '#0D2238',
+  /** Onda do meio: ações, links, foco. */
   azul: '#0073A8',
-  petroleo: '#37576D',
+  azulEscuro: '#005B86',
+  /** Onda menor: indicadores, ondas, destaques sobre o marinho. */
+  turquesa: '#59BDBC',
+  /** Turquesa bem claro do site: fundos de destaque. */
+  turquesaClaro: '#D4EFEE',
+  /** Fundo das páginas: espuma, um branco com um pouco de água. */
+  espuma: '#EEF7F7',
+  borda: '#D3E6E8',
   grafite: '#2F2E2E',
-  cinzaTexto: '#5F5E5E',
-  fundo: '#F4F6F8',
-  borda: '#DDE3E8',
+  /** Texto secundário: marinho acinzentado, 6,4:1 no branco. */
+  textoSecundario: '#4A6274',
+  branco: '#FFFFFF',
 } as const;
 
 /** Altura mínima de alvos de toque (RNF-01). */
 export const ALVO_TOQUE = 44;
 
-export const LARGURA_MENU = 264;
+export const LARGURA_MENU = 272;
+
+const FONTE = '"Montserrat", "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 export const tema = createTheme({
   palette: {
-    primary: { main: CORES.marinho },
-    secondary: { main: CORES.azul },
-    text: { primary: CORES.grafite, secondary: CORES.cinzaTexto },
-    background: { default: CORES.fundo, paper: '#FFFFFF' },
+    primary: { main: CORES.azul, dark: CORES.azulEscuro, contrastText: CORES.branco },
+    secondary: { main: CORES.marinho, contrastText: CORES.branco },
+    info: { main: CORES.azul },
+    text: { primary: CORES.grafite, secondary: CORES.textoSecundario },
+    background: { default: CORES.espuma, paper: CORES.branco },
     divider: CORES.borda,
   },
   typography: {
-    fontFamily: '"Montserrat", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    h1: { fontSize: '1.75rem', fontWeight: 700 },
-    h2: { fontSize: '1.375rem', fontWeight: 600 },
-    h3: { fontSize: '1.125rem', fontWeight: 600 },
-    button: { textTransform: 'none', fontWeight: 600 },
+    fontFamily: FONTE,
+    fontSize: 14,
+    h1: {
+      fontSize: '1.75rem',
+      fontWeight: 700,
+      lineHeight: 1.2,
+      letterSpacing: '-0.01em',
+      textWrap: 'balance',
+    },
+    h2: { fontSize: '1.25rem', fontWeight: 700, lineHeight: 1.3, textWrap: 'balance' },
+    h3: { fontSize: '1rem', fontWeight: 600, lineHeight: 1.4 },
+    body1: { fontSize: '0.9375rem', lineHeight: 1.55 },
+    body2: { fontSize: '0.875rem', lineHeight: 1.5 },
+    button: { textTransform: 'none', fontWeight: 600, letterSpacing: 0 },
   },
-  shape: { borderRadius: 8 },
+  shape: { borderRadius: 10 },
   components: {
-    MuiButton: { styleOverrides: { root: { minHeight: ALVO_TOQUE } } },
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: { WebkitTapHighlightColor: 'transparent' },
+        body: {
+          // Sistema de números: algarismos da mesma largura alinham colunas e totais.
+          fontVariantNumeric: 'tabular-nums',
+          touchAction: 'manipulation',
+        },
+        // Foco visível só no teclado; azul sobre fundo claro, turquesa sobre o marinho.
+        ':focus-visible': { outline: `3px solid ${CORES.azul}`, outlineOffset: 2 },
+        '.fundo-escuro :focus-visible': { outlineColor: CORES.turquesa },
+      },
+    },
+    MuiButton: {
+      styleOverrides: { root: { minHeight: ALVO_TOQUE, borderRadius: 8 } },
+      defaultProps: { disableElevation: true },
+    },
     MuiIconButton: { styleOverrides: { root: { minWidth: ALVO_TOQUE, minHeight: ALVO_TOQUE } } },
     MuiListItemButton: { styleOverrides: { root: { minHeight: 48 } } },
-    MuiCard: { defaultProps: { variant: 'outlined' } },
+    MuiCard: {
+      defaultProps: { variant: 'outlined' },
+      styleOverrides: { root: { borderColor: CORES.borda, borderRadius: 14 } },
+    },
+    MuiAlert: { styleOverrides: { root: { borderRadius: 12 } } },
+    MuiChip: { styleOverrides: { root: { fontWeight: 500 } } },
+    MuiDrawer: { styleOverrides: { paper: { overscrollBehavior: 'contain' } } },
+    MuiAppBar: { defaultProps: { elevation: 0 } },
+    MuiTooltip: {
+      styleOverrides: { tooltip: { backgroundColor: alpha(CORES.marinho, 0.95), fontSize: 12 } },
+    },
   },
 });

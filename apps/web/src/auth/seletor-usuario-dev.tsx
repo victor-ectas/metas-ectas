@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Chip,
   Dialog,
@@ -46,11 +47,22 @@ export function SeletorUsuarioDev() {
 
   return (
     <>
+      {/* No celular a barra é estreita: o chip mostra só "DEV"; o nome completo fica no
+          aria-label, para leitores de tela. */}
       <Chip
-        label={`DEV: ${atual ?? 'usuário padrão'}`}
+        aria-label={`DEV: ${atual ?? 'usuário padrão'}`}
+        label={
+          <>
+            DEV
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              : {atual ?? 'usuário padrão'}
+            </Box>
+          </>
+        }
         color="warning"
+        size="small"
         onClick={abrir}
-        sx={{ maxWidth: { xs: 140, sm: 280 } }}
+        sx={{ maxWidth: 280, flexShrink: 0 }}
       />
       <Dialog
         open={aberto}
@@ -69,13 +81,16 @@ export function SeletorUsuarioDev() {
             </DialogContentText>
             <TextField
               label="E-mail do usuário"
+              name="usuario-dev"
               type="email"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Ex.: gestor@ectas.com.br"
               value={email}
               onChange={(evento) => {
                 setEmail(evento.target.value);
               }}
               fullWidth
-              autoFocus
             />
           </DialogContent>
           <DialogActions>

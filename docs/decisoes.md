@@ -284,3 +284,24 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Formatação** (`src/formatacao`): número, moeda, percentual (fração → `79,91%`), SIM/NÃO, valor por unidade (`2,64 dias`) e datas `dd/mm/aaaa` no fuso de São Paulo (data sem hora não muda de dia). Vazio vira `—` (RN-08); nunca `-0,00`.
 
 **Consequências.** A web roda inteira no modo DEV sem Entra ID. O critério "login real no Entra ID em homologação" depende do registro do aplicativo (IDs no `.env` e a URI de redirecionamento SPA cadastrada).
+
+## ADR-015 — Identidade visual da ECTAS na web
+
+- **Data:** 12/11/2026
+- **Status:** Aceita (substitui a parte de identidade visual do ADR-014)
+- **Passo:** ajuste do P10, a pedido do desenvolvedor
+
+**Contexto.** O desenvolvedor pediu o sistema "com a carinha da ECTAS": cores, fontes e elementos de água do site oficial (ectas.com.br). O levantamento usou o firecrawl (extração de marca e captura de tela inteira do site) e o arquivo original do logotipo.
+
+**Decisão.**
+
+- **Cores do logotipo oficial** (três ondas): marinho `#13314D`, azul `#0073A8`, turquesa `#59BDBC`. Complementos do site: turquesa claro `#D4EFEE`, fundo "espuma" `#EEF7F7`, borda `#D3E6E8`, texto `#2F2E2E` e texto secundário `#4A6274`. Ações e foco em azul; turquesa só como decoração e indicador sobre fundo claro (contraste 2,3:1) e como texto apenas sobre o marinho (5,9:1).
+- **Fonte**: Montserrat em todo o sistema, como no site (títulos 700, corpo 400), servida pelo próprio sistema; números tabulares em toda a página (sistema de números).
+- **Logotipo**: gerado do PNG oficial (2331×1470) em `apps/web/src/assets/`: símbolo colorido, símbolo e nome em branco (para o marinho). Imagens com o dobro do tamanho exibido. Favicon e ícone do iPhone a partir do símbolo.
+- **Elementos de água** (um só elemento marcante, como no site): faixa azul no topo do Início com a marca d'água das ondas do logotipo e borda ondulada turquesa; as três ondas do logotipo no pé do menu lateral, com o slogan "Ninguém cuida da ÁGUA como nós."; indicador turquesa ("nível de água") no item do menu da página atual.
+- **Layout**: menu lateral marinho (como o rodapé do site) fixo no desktop e em gaveta no celular; barra superior branca no desktop (nome e perfil do usuário) e marinho no celular (com o logotipo). Conteúdo com largura máxima de 1120 px.
+- **Movimento**: só na tela de carregamento (o símbolo sobe e desce devagar), desligado com `prefers-reduced-motion`.
+- **Sem**: degradês decorativos, rótulos em caixa alta (o site usa muito, mas prejudica a leitura num sistema) e animações de entrada.
+- **Diretrizes de interface** (Vercel Web Interface Guidelines) conferidas: foco visível (`:focus-visible` azul; turquesa sobre o marinho), imagens com largura e altura, `aria-hidden` nas ondas e ícones decorativos, `text-wrap: balance` nos títulos, `overscroll-behavior: contain` na gaveta, `touch-action: manipulation`, áreas seguras do celular (`viewport-fit=cover` + `env(safe-area-inset-*)`), `theme-color` igual à barra do celular, `translate="no"` na marca. Desvio consciente: os números são formatados à mão sobre `Decimal` em vez de `Intl.NumberFormat`, que exigiria converter para `number` (5.4).
+
+**Consequências.** Os tokens ficam em `apps/web/src/app/tema.ts` (`CORES`); um manual de marca, se aparecer, muda só esse arquivo e os PNGs de `assets/`. O logotipo é da empresa e fica no repositório interno.
