@@ -124,6 +124,9 @@ describe('restrições do banco (CHECKs, únicos e triggers)', () => {
     });
 
     it('no máximo um ciclo ATIVO (RF-07)', async () => {
+      // Os testes da API usam o mesmo banco ao mesmo tempo e podem ter um ciclo ativo gravado:
+      // dentro desta transação (desfeita no fim) ele vira rascunho, para o teste não depender disso.
+      await sql("UPDATE ciclo SET status = 'RASCUNHO' WHERE status = 'ATIVO'");
       await sql("INSERT INTO ciclo (ano, status) VALUES (2026, 'ATIVO')");
       await sql("INSERT INTO ciclo (ano, status) VALUES (2025, 'RASCUNHO')");
       expect(await falha("INSERT INTO ciclo (ano, status) VALUES (2027, 'ATIVO')")).toMatchObject({

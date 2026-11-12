@@ -9,6 +9,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CadastrosModule } from './cadastros/cadastros.module.js';
+import { VariaveisModule } from './variaveis/variaveis.module.js';
 import { FiltroErros } from './comum/filtro-erros.js';
 import { LimiteEscritaGuard } from './comum/limite-escrita.guard.js';
 import { CONFIG, type Config } from './config/config.js';
@@ -77,6 +78,7 @@ export class AppModule {
         AuthModule,
         SaudeModule,
         CadastrosModule,
+        VariaveisModule,
       ],
       providers: [
         // Ordem: limite de taxa antes do login (barra excesso sem consultar o banco).

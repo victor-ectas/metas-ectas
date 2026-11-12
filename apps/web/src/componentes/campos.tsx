@@ -62,6 +62,10 @@ export function CampoSelecao<T extends FieldValues>(
           select
           name={field.name}
           value={field.value ?? ''}
+          // Com a opção "nenhum", o vazio aparece escrito (ex.: "Ainda não definido").
+          {...(vazio === undefined
+            ? {}
+            : { slotProps: { select: { displayEmpty: true }, inputLabel: { shrink: true } } })}
           onChange={(evento) => {
             field.onChange(evento.target.value === '' ? null : evento.target.value);
           }}

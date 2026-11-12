@@ -4,3 +4,4 @@ export * from './enums.js';
 export * from './erros.js';
 export * from './schemas.js';
 export * from './sessao.js';
+export * from './variaveis.js';

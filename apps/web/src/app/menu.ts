@@ -54,7 +54,7 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     rotulo: 'Variáveis',
     secao: 'ADMINISTRACAO',
     perfis: [ADMIN],
-    passo: 'P12',
+    passo: null,
   },
   {
     caminho: '/modelos',

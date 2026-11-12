@@ -23,3 +23,4 @@ export { parse, PROFUNDIDADE_MAXIMA } from './parser.js';
 export { type Token, tokenizar } from './tokenizer.js';
 export { type ErroValidacao, type ResultadoValidacao, validar } from './validador.js';
 export { chaveVariavel, type ReferenciaVariavel, variaveisUsadas } from './variaveis.js';
+export { type Renomeacao, renomearVariavel } from './renomear.js';

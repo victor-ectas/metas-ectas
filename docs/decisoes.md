@@ -332,3 +332,31 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Atenção no MUI**: em `sx`, o número `1` em `width` vale 100%; use `'1px'`/`'1%'`.
 
 **Consequências.** As próximas telas (variáveis, metas, lançamentos) reutilizam os mesmos componentes e o mesmo padrão de erro. Mudança em `@metas/tipos` ou `@metas/motor` exige reiniciar o `pnpm dev` para a API (ADR-011).
+
+## ADR-017 — Variáveis: travas, renomeação nas fórmulas e testes em sequência
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** P12
+
+**Contexto.** O P12 pede API e tela de variáveis por ciclo e setor, a lista "usada por" e a renomeação do código atualizando as fórmulas (RF-21), numa transação. A especificação não diz o que pode mudar numa variável já em uso, nem quem pode ser responsável por variável do Corporativo; o desenvolvedor decidiu em 12/11/2026.
+
+**Decisões do desenvolvedor.**
+
+- **Travas**: com lançamentos ou usada em alguma meta, a variável não muda de **tipo, acumulação nem setor** (mudariam o significado dos valores já lançados). Nome, código (com RF-21), origem, casas decimais, responsável e situação continuam editáveis.
+- **Inativar**: recusado (`EM_USO`, com a lista das metas) enquanto uma meta **ativa** usa a variável.
+- **Responsável próprio** (RN-07): só no Corporativo, só **Gestor ativo** (a Diretoria foi considerada e descartada, porque a tabela 7.5 diz que a Diretoria não lança). É opcional no cadastro; a consistência do ciclo (P15) avisa e impede ativar.
+- **Exclusão**: só sem registros associados (lançamentos ou metas), como no ADR-016; nos outros casos, inativar.
+
+**Decisões técnicas.**
+
+- **Rotas** (só Admin): `GET/POST /ciclos/{id}/variaveis` (`?setor=`), `GET/PUT/DELETE /ciclos/{id}/variaveis/{vid}`. A resposta traz `setorCodigo`, `responsavelNome`, `temLancamentos` e `usadaPor` (metas de `meta_variavel`). Ciclo `ENCERRADO` recusa alterações (`CICLO_ENCERRADO`, RN-39); ciclo ativo aceita (o recálculo vem no P17).
+- **Renomeação (RF-21)**: `renomearVariavel(formula, {setorDaMeta, setorDaVariavel, antigo, novo})` no motor, pelos tokens e não por busca de texto: troca `ANTIGO` nas metas do setor da variável e `SETOR.ANTIGO` em qualquer setor, sem tocar em funções nem em nomes parecidos (`ANTIGO_2`), e preserva o resto do texto como foi digitado. A API reescreve `formula_texto`, regrava `formula_ast` (`parse` do motor), sobe a `versao` da meta e audita cada meta (`RENOMEAR_VARIAVEL`), tudo na mesma transação da variável; se o novo código já existe, nada muda.
+- **Nomes reservados**: o código da variável não pode ser nome de função das fórmulas, inclusive as da Fase 2 (`SE`, `E`, `OU`, `NAO`, `ARRED`, `MIN`, `MAX`, `ABS`, `ANTERIOR`, `META`), para não confundir quem lê a fórmula.
+- **SIM/NÃO** é gravado sempre com 0 casas decimais (RN-10).
+- **Web**: página `/variaveis` com seletor de ciclo (`SeletorCiclo`, extraído da aba de ciclos), filtro por setor e busca no navegador (a lista de um ciclo é pequena), lista com o código completo `SETOR.CODIGO` e "Usada por"; diálogo com os campos travados explicados ("Fixo: a variável já tem lançamentos"), aviso de quantas fórmulas mudam ao trocar o código e responsável só quando o setor é o Corporativo. `CampoSelecao` com opção vazia passa a mostrá-la escrita (`displayEmpty`).
+- **Testes dos pacotes em sequência** (`pnpm -r --workspace-concurrency=1 run test`): `@metas/prisma` e `@metas/api` usam o mesmo banco de teste e corriam juntos. Um ciclo ATIVO gravado por um teste da API derrubava o teste "no máximo um ciclo ATIVO" do Prisma (que agora também neutraliza ciclos ativos dentro da própria transação), e a carga de vários vitest ao mesmo tempo estourava timeouts da web. O `pnpm test` leva cerca de 75 s.
+
+**Pendência conhecida.** O processo de teste da API cai às vezes no Windows com o código `0xC0000409` (cerca de 1 em 10 execuções do `cadastros.test.ts`), sem mensagem, sem relatório do Node e em pontos diferentes. **Já acontecia no código do P11** (conferido com `git stash`), acontece com e sem os servidores de dev e é pior com `--pool=threads`. Não é teste errado: rodar de novo passa. Investigar à parte (atualização do Node 24, Prisma/adapter `pg`, swc).
+
+**Consequências.** O P13 grava a AST com o mesmo `parse` e deriva `meta_variavel` dela; a renomeação depende disso. Mudança em `@metas/tipos` ou `@metas/motor` continua exigindo reiniciar o `pnpm dev` (ADR-011).

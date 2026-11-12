@@ -12,6 +12,8 @@ const MENSAGENS_UNICIDADE: Readonly<Record<string, string>> = {
   ciclo_ano_key: 'Já existe um ciclo para este ano.',
   ciclo_unico_ativo: 'Já existe um ciclo ativo. Só pode haver um por vez.',
   feriado_data_key: 'Já existe um feriado nesta data.',
+  variavel_ciclo_id_setor_id_codigo_key:
+    'Já existe uma variável com este código neste setor e ciclo.',
 };
 
 /** Nome do índice ou da restrição que o PostgreSQL acusou (Prisma 7 com o adapter `pg`). */

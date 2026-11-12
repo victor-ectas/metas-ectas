@@ -40,10 +40,10 @@ describe('layout em 1440 px (desktop)', () => {
     const usuario = userEvent.setup();
     renderizarApp({ respostas: { '/me': { status: 200, corpo: sessaoDe('ADMIN') } } });
     const menu = await screen.findByRole('navigation', { name: 'Menu principal' });
-    await usuario.click(within(menu).getByRole('link', { name: 'Variáveis' }));
-    expect(await screen.findByRole('heading', { name: 'Variáveis' })).toBeInTheDocument();
-    expect(screen.getByText(/passo P12 do plano/)).toBeInTheDocument();
-    expect(within(menu).getByRole('link', { name: 'Variáveis' })).toHaveAttribute(
+    await usuario.click(within(menu).getByRole('link', { name: 'Metas' }));
+    expect(await screen.findByRole('heading', { name: 'Metas' })).toBeInTheDocument();
+    expect(screen.getByText(/passo P14 do plano/)).toBeInTheDocument();
+    expect(within(menu).getByRole('link', { name: 'Metas' })).toHaveAttribute(
       'aria-current',
       'page',
     );

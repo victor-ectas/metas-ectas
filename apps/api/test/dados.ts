@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import { criarPrismaClient, type PrismaClient } from '@metas/prisma';
+import { criarPrismaClient, type Prisma, type PrismaClient } from '@metas/prisma';
+import { parse } from '@metas/motor';
 import type { Perfil } from '@metas/tipos';
 
 import { urlBancoTeste, urlBancoTesteComoApp } from './ambiente.js';
@@ -48,6 +49,70 @@ export async function criarSetor(nome: string) {
   return banco().setor.create({ data: { codigo, nome } });
 }
 
+/** O setor Corporativo do banco de teste (cria um de teste se ainda não houver). */
+export async function setorCorporativo() {
+  const existente = await banco().setor.findFirst({ where: { corporativo: true } });
+  return (
+    existente ??
+    banco().setor.create({
+      data: { codigo: `${PREFIXO_SETOR}CORP`, nome: 'Corporativo (teste)', corporativo: true },
+    })
+  );
+}
+
+export async function criarVariavel(
+  cicloId: string,
+  setorId: string,
+  codigo: string,
+  extra: { tipo?: 'NUMERO' | 'PERCENTUAL'; ativo?: boolean } = {},
+) {
+  return banco().variavel.create({
+    data: {
+      cicloId,
+      setorId,
+      codigo,
+      nome: `Variável ${codigo}`,
+      tipo: extra.tipo ?? 'NUMERO',
+      acumulacao: 'SOMA',
+      ativo: extra.ativo ?? true,
+    },
+  });
+}
+
+/**
+ * Meta mínima com fórmula e o vínculo `meta_variavel` (o cadastro de metas vem no P13). A AST é
+ * a do motor, como a API grava.
+ */
+export async function criarMeta(dados: {
+  cicloId: string;
+  setorId: string;
+  responsavelId: string;
+  formula: string;
+  variavelIds: string[];
+  ativo?: boolean;
+}) {
+  return banco().meta.create({
+    data: {
+      cicloId: dados.cicloId,
+      setorId: dados.setorId,
+      responsavelId: dados.responsavelId,
+      codigo: `M_${randomUUID().slice(0, 8).toUpperCase()}`,
+      indicador: 'Meta de teste',
+      metrica: 'Teste',
+      unidade: 'NUMERO',
+      formulaTexto: dados.formula,
+      formulaAst: parse(dados.formula) as unknown as Prisma.InputJsonValue,
+      modoApuracao: 'FORMULA_SOBRE_ACUMULADOS',
+      operador: 'GE',
+      mesInicio: 1,
+      mesFim: 12,
+      regraPontuacao: 'PROPORCIONAL',
+      ativo: dados.ativo ?? true,
+      variaveis: { create: dados.variavelIds.map((variavelId) => ({ variavelId })) },
+    },
+  });
+}
+
 export async function criarCiclo(ano: number, status: 'ATIVO' | 'RASCUNHO' | 'ENCERRADO') {
   return banco().ciclo.create({
     data: { ano, status, encerradoEm: status === 'ENCERRADO' ? new Date() : null },
@@ -77,6 +142,16 @@ export async function limparDados(): Promise<void> {
         DELETE FROM leitor_setor
         WHERE setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores})
            OR usuario_id IN (SELECT id FROM usuario WHERE email LIKE ${emails})`;
+      // Lançamentos e metas dos ciclos de teste (meta_variavel vai junto, em cascata).
+      await tx.$executeRaw`
+        DELETE FROM lancamento WHERE variavel_id IN (
+          SELECT id FROM variavel
+          WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
+             OR setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores}))`;
+      await tx.$executeRaw`
+        DELETE FROM meta
+        WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
+           OR setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores})`;
       await tx.$executeRaw`
         DELETE FROM variavel
         WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))

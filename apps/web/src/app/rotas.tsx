@@ -4,6 +4,7 @@ import { PaginaCadastros } from '../paginas/cadastros/pagina-cadastros';
 import { EmConstrucao } from '../paginas/em-construcao';
 import { Inicio } from '../paginas/inicio';
 import { NaoEncontrada } from '../paginas/nao-encontrada';
+import { PaginaVariaveis } from '../paginas/variaveis/pagina-variaveis';
 import { Layout } from './layout';
 import { ITENS_MENU } from './menu';
 
@@ -14,6 +15,7 @@ export function criarRotas(): RouteObject[] {
       children: [
         { index: true, element: <Inicio /> },
         { path: 'cadastros', element: <PaginaCadastros /> },
+        { path: 'variaveis', element: <PaginaVariaveis /> },
         ...ITENS_MENU.filter((item) => item.passo !== null).map((item) => ({
           path: item.caminho.slice(1),
           element: <EmConstrucao item={item} />,

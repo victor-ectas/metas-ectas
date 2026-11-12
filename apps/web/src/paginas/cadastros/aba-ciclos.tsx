@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -36,17 +35,12 @@ import {
 } from '../../api/cadastros';
 import { mensagemDeErro } from '../../api/erro-api';
 import { plural } from '../../app/plural';
-import { ROTULO_STATUS_CICLO } from '../../app/rotulos';
 import { CORES } from '../../app/tema';
 import { useAvisar } from '../../componentes/avisos';
 import { CabecalhoSecao } from '../../componentes/cabecalho-pagina';
 import { CampoTexto } from '../../componentes/campos';
 import { aplicarErrosDaApi } from '../../componentes/formulario';
-
-/** Ciclo mostrado de início: o ativo; senão, o mais recente. */
-function cicloInicial(ciclos: readonly Ciclo[]): Ciclo | undefined {
-  return ciclos.find((c) => c.status === StatusCiclo.ATIVO) ?? ciclos[0];
-}
+import { cicloInicial, SeletorCiclo } from '../../componentes/seletor-ciclo';
 
 /**
  * Ciclos (RF-07: criar e listar; ativar e encerrar ficam no P15) e o gestor responsável por cada
@@ -97,37 +91,9 @@ export function AbaCiclos() {
         </Box>
       ) : (
         <>
-          <Stack
-            direction="row"
-            useFlexGap
-            spacing={1}
-            sx={{ flexWrap: 'wrap', mb: 3 }}
-            role="group"
-            aria-label="Ciclo"
-          >
-            {lista.map((c) => {
-              const selecionado = c.id === ciclo?.id;
-              return (
-                <Chip
-                  key={c.id}
-                  label={`${String(c.ano)} (${ROTULO_STATUS_CICLO[c.status]})`}
-                  aria-pressed={selecionado}
-                  onClick={() => {
-                    setEscolhido(c.id);
-                  }}
-                  sx={{
-                    height: 40,
-                    px: 0.5,
-                    fontWeight: 600,
-                    bgcolor: selecionado ? CORES.marinho : CORES.branco,
-                    color: selecionado ? CORES.branco : CORES.marinho,
-                    border: `1px solid ${selecionado ? CORES.marinho : CORES.borda}`,
-                    '&:hover': { bgcolor: selecionado ? CORES.marinho : CORES.turquesaClaro },
-                  }}
-                />
-              );
-            })}
-          </Stack>
+          <Box sx={{ mb: 3 }}>
+            <SeletorCiclo ciclos={lista} selecionado={ciclo?.id} aoEscolher={setEscolhido} />
+          </Box>
           {ciclo !== undefined && <Responsaveis key={ciclo.id} ciclo={ciclo} />}
         </>
       )}
