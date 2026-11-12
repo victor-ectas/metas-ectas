@@ -23,6 +23,10 @@ export const CodigoErro = {
   JA_EXISTE: 'JA_EXISTE',
   /** Exclusão de algo que tem registros associados: só pode ser inativado (P11). */
   EM_USO: 'EM_USO',
+  /** Ativar ciclo com problema que bloqueia no painel de consistência (P15). */
+  CICLO_INCONSISTENTE: 'CICLO_INCONSISTENTE',
+  /** Mudança de status do ciclo fora de ordem: já ativo, outro ativo, dezembro aberto (P15). */
+  STATUS_CICLO_INVALIDO: 'STATUS_CICLO_INVALIDO',
   ERRO_INTERNO: 'ERRO_INTERNO',
 } as const;
 export type CodigoErro = (typeof CodigoErro)[keyof typeof CodigoErro];

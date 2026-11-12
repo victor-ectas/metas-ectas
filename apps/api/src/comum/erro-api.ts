@@ -15,6 +15,8 @@ export const STATUS_DO_CODIGO: Readonly<Record<CodigoErro, number>> = {
   [CodigoErro.PESOS_INCONSISTENTES]: 422,
   [CodigoErro.CICLO_ENCERRADO]: 422,
   [CodigoErro.IMPORTACAO_INVALIDA]: 422,
+  [CodigoErro.CICLO_INCONSISTENTE]: 422,
+  [CodigoErro.STATUS_CICLO_INVALIDO]: 422,
   [CodigoErro.MUITAS_REQUISICOES]: 429,
   // Conflito com o estado atual: o registro já existe, ou está em uso e não pode ser excluído.
   [CodigoErro.JA_EXISTE]: 409,

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type Ciclo,
   CicloEntradaSchema,
+  type ConsistenciaCiclo,
   type Feriado,
   FeriadoEntradaSchema,
   FiltroFeriadosSchema,
@@ -25,6 +26,7 @@ import { Perfis } from '../auth/decoradores.js';
 import { AutorDaRequisicao } from '../comum/autor.js';
 import { ValidacaoZod } from '../comum/validacao-zod.pipe.js';
 import { CiclosService } from './ciclos.service.js';
+import { ConsistenciaService } from './consistencia.service.js';
 import { FeriadosService } from './feriados.service.js';
 import { SetoresService } from './setores.service.js';
 import { UsuariosService } from './usuarios.service.js';
@@ -133,7 +135,10 @@ export class SetoresController {
 @Perfis(Perfil.ADMIN)
 @Controller('ciclos')
 export class CiclosController {
-  constructor(private readonly ciclos: CiclosService) {}
+  constructor(
+    private readonly ciclos: CiclosService,
+    private readonly consistencia: ConsistenciaService,
+  ) {}
 
   @Get()
   listar(): Promise<Ciclo[]> {
@@ -164,6 +169,26 @@ export class CiclosController {
     @AutorDaRequisicao() autor: Autor,
   ): Promise<ResponsavelSetor[]> {
     return this.ciclos.definirResponsaveis(id, dados, autor);
+  }
+
+  @Get(':id/consistencia')
+  @ApiOperation({ summary: 'Painel de consistência: pesos por gestor, problemas e encerramento' })
+  consultarConsistencia(@Param('id', idValido) id: string): Promise<ConsistenciaCiclo> {
+    return this.consistencia.avaliar(id);
+  }
+
+  @Post(':id/ativar')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Ativa o ciclo em Rascunho, se não houver problema que bloqueia' })
+  ativar(@Param('id', idValido) id: string, @AutorDaRequisicao() autor: Autor): Promise<Ciclo> {
+    return this.consistencia.ativar(id, autor);
+  }
+
+  @Post(':id/encerrar')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Encerra o ciclo ativo e congela as notas (fotografia final)' })
+  encerrar(@Param('id', idValido) id: string, @AutorDaRequisicao() autor: Autor): Promise<Ciclo> {
+    return this.consistencia.encerrar(id, autor);
   }
 }
 

@@ -135,7 +135,7 @@ export const SetorEntradaSchema = z.object({
 export type SetorEntrada = z.input<typeof SetorEntradaSchema>;
 
 // ---------------------------------------------------------------------------------------------
-// Ciclos (RF-07). Ativar e encerrar ficam no P15.
+// Ciclos (RF-07). Ativar e encerrar: consistencia.ts (P15).
 // ---------------------------------------------------------------------------------------------
 
 export const CicloSchema = z.object({

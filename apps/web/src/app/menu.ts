@@ -68,7 +68,7 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     rotulo: 'Ciclos e consistência',
     secao: 'ADMINISTRACAO',
     perfis: [ADMIN],
-    passo: 'P15',
+    passo: null,
   },
   {
     caminho: '/fechamento',

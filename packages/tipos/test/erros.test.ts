@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CodigoErro, CodigoErroSchema, ErroApiSchema } from '../src/index.js';
 
 describe('códigos de erro (CLAUDE.md 5.3)', () => {
-  it('tem os códigos iniciais da 5.3, MUITAS_REQUISICOES, JA_EXISTE e EM_USO', () => {
+  it('tem os códigos iniciais da 5.3, MUITAS_REQUISICOES, JA_EXISTE, EM_USO e os do ciclo', () => {
     expect(Object.values(CodigoErro)).toEqual([
       'NAO_AUTENTICADO',
       'SEM_PERMISSAO',
@@ -20,6 +20,8 @@ describe('códigos de erro (CLAUDE.md 5.3)', () => {
       'MUITAS_REQUISICOES',
       'JA_EXISTE',
       'EM_USO',
+      'CICLO_INCONSISTENTE',
+      'STATUS_CICLO_INVALIDO',
       'ERRO_INTERNO',
     ]);
   });

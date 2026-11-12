@@ -29,8 +29,8 @@ function paraCiclo(c: {
 }
 
 /**
- * Ciclos (RF-07) e responsáveis por setor em cada ciclo (RF-05). Ativar e encerrar ficam no P15
- * (dependem da consistência). Responsável só Gestor ativo (decisão do desenvolvedor, 12/11/2026).
+ * Ciclos (RF-07) e responsáveis por setor em cada ciclo (RF-05). Ativar e encerrar ficam no
+ * ConsistenciaService (P15). Responsável só Gestor ativo (decisão do desenvolvedor, 12/11/2026).
  */
 @Injectable()
 export class CiclosService {

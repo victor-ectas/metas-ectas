@@ -13,8 +13,9 @@ import { urlBancoTeste, urlBancoTesteComoApp } from './ambiente.js';
  */
 export const DOMINIO = 'api-teste.local';
 const PREFIXO_SETOR = 'TAPI_';
-const ANOS = [2097, 2098];
-export const [ANO_ATIVO, ANO_RASCUNHO] = ANOS as [number, number];
+const ANOS = [2097, 2098, 2003];
+/** ANO_FECHADO: ciclo com dezembro já fechado, para o encerramento (P15). */
+export const [ANO_ATIVO, ANO_RASCUNHO, ANO_FECHADO] = ANOS as [number, number, number];
 /** Feriados de teste: 2001 (meses já fechados, para a trava) e os anos de teste. */
 export const ANO_PASSADO = 2001;
 const ANOS_FERIADO = [ANO_PASSADO, ...ANOS];
@@ -164,6 +165,10 @@ export async function limparDados(): Promise<void> {
         DELETE FROM variavel
         WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
            OR setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores})`;
+      await tx.$executeRaw`
+        DELETE FROM nota_fechamento WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))`;
+      await tx.$executeRaw`
+        DELETE FROM reabertura WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))`;
       await tx.$executeRaw`DELETE FROM ciclo WHERE ano = ANY(${ANOS})`;
       await tx.$executeRaw`
         DELETE FROM feriado WHERE extract(year FROM data)::int = ANY(${ANOS_FERIADO})`;

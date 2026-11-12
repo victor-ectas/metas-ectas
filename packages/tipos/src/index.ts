@@ -6,3 +6,4 @@ export * from './schemas.js';
 export * from './sessao.js';
 export * from './variaveis.js';
 export * from './metas.js';
+export * from './consistencia.js';

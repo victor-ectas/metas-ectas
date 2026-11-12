@@ -444,3 +444,52 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Responsivo**: no desktop, Stepper com as 5 etapas e o resumo fixo à direita (≥ 1200 px); no tablet e no celular, "Etapa X de 5" e o resumo abaixo. Conferido em 1440, 768 e 360 px, sem rolagem horizontal. No MUI 9, os botões do Stepper têm papel `tab` (dentro de `tablist`).
 
 **Consequências.** O fetch falso dos testes da web aceita respostas que demoram (promessa). A tela de consistência (P15) reaproveita as atribuições e os pesos. Duas metas de exemplo (FISCAL_PRAZO e FAB_ENGAJAMENTO, com 5 submetas) ficaram no banco de dev.
+
+## ADR-021 — Consistência, ativação e encerramento do ciclo
+
+- **Data:** 12/11/2026
+- **Status:** Aceita
+- **Passo:** P15
+
+**Contexto.** O P15 pede o painel de consistência do ciclo, a ativação bloqueada quando houver problema e o encerramento gravando `nota_fechamento`. A especificação não diz o que fazer com dois ciclos ativos na virada do ano, quando o ciclo pode ser encerrado, nem quais problemas impedem a ativação e quais só avisam. O desenvolvedor decidiu os três pontos.
+
+**Decisões do desenvolvedor (12/11/2026).**
+
+- **Um ciclo ativo por vez**: ativar o ciclo novo exige o anterior encerrado. O índice único `ciclo_unico_ativo` continua valendo. Na prática, o ciclo N+1 só é ativado no fim de janeiro, depois do fechamento de dezembro do ciclo N.
+- **Encerrar** só um ciclo ativo, depois do prazo de dezembro (15º dia útil de janeiro, 23:59:59 em America/Sao_Paulo) e sem reabertura em vigor em nenhum mês. Não se desfaz.
+- **Bloqueiam a ativação**:
+  - pesos do gestor fora de 50/50 ou 100 (RN-03, CT-17);
+  - regras da meta pelo `validarMeta`: pesos internos ≠ 100%, falta de objetivo e outras;
+  - fórmula que não valida mais contra as variáveis ativas;
+  - meta ativa sem atribuição;
+  - responsável, gestor atribuído ou responsável de setor/variável que deixou de ser Gestor ativo;
+  - variável do Corporativo sem responsável;
+  - setor com variáveis ou metas no ciclo sem responsável.
+- **Só avisam**:
+  - responsável da meta departamental diferente do responsável do setor;
+  - Gestor ativo sem nenhuma meta;
+  - setor ativo vazio e sem responsável;
+  - ciclo sem metas.
+
+**Decisões técnicas.**
+
+- **Rotas** (só Administrador):
+  - `GET /ciclos/{id}/consistencia` devolve o ciclo, `podeAtivar`, `motivoNaoAtivar`, os pesos por gestor (Corporativo, Departamental, total, `ok`), os problemas (bloqueios antes dos avisos, cada um com tipo, gravidade, código de erro equivalente e a meta, variável, setor ou usuário envolvido) e a situação do encerramento.
+  - `POST /ciclos/{id}/ativar` e `POST /ciclos/{id}/encerrar` respondem 200 com o ciclo.
+- **Códigos de erro novos** (422):
+  - `CICLO_INCONSISTENTE`: ativar com bloqueios. `detalhes.problemas` traz a lista.
+  - `STATUS_CICLO_INVALIDO`: já ativo, outro ativo, rascunho que não encerra, dezembro ainda aberto ou reabertura em vigor.
+  - O ciclo encerrado continua respondendo `CICLO_ENCERRADO`.
+- **Ativação** reavalia o painel dentro da transação, muda o status com `where status = RASCUNHO` e audita (`ATIVAR`).
+- **Encerramento** calcula o ciclo inteiro com o motor (`calcularCiclo`) a partir de `carregarCiclo` (`apps/api/src/resultados/carregar-ciclo.ts`): metas e submetas ativas, atribuições, AST gravada e lançamentos.
+  - Grava uma linha de `nota_fechamento` por gestor e bloco: pontos com 6 casas e, em `dados`, o peso total e cada meta com peso, pontos, acumulado, objetivo, atendimento e situação.
+  - Muda o status, grava `encerrado_em`/`encerrado_por` e audita (`ENCERRAR`), tudo na mesma transação.
+  - O `carregarCiclo` foi antecipado do P17, porque o encerramento depende dele. O P17 parte daqui para gravar as tabelas de resultado.
+- **Consultas em sequência** dentro das transações: o `pg` não aceita consultas simultâneas na mesma conexão. O aviso `client.query() when the client is already executing` que ainda aparece nos testes vem do próprio Prisma 7 (relações aninhadas numa transação) e já existia no P13.
+- **Web**: tela `/ciclos` com o seletor de ciclo na URL, as etapas Rascunho → Ativo → Encerrado e o botão da ação possível, com confirmação e o erro da API no diálogo.
+  - Pesos por gestor em tabela, que vira cartões no celular. A situação tem texto e ícone ("Fecha"/"Não fecha").
+  - Problemas em duas listas ("Impedem a ativação" e "Avisos"), cada um com o link para onde se resolve.
+  - Conferido em 1440 e 360 px com os dados reais do banco de dev.
+- **Testes da web** com limite de 15 s: telas com digitação simulada levam 1–2 s sozinhas, mas passavam dos 5 s padrão com 12 arquivos em paralelo no Windows.
+
+**Consequências.** O P17 grava `resultado_*` e `nota_gestor` partindo do `carregarCiclo`. A reabertura (P23) já entra na regra do encerramento. O ciclo de teste `ANO_FECHADO` (2003) foi criado para os testes de encerramento; a limpeza dos testes da API também apaga `nota_fechamento` e `reabertura`.

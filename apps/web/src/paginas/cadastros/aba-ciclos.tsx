@@ -43,7 +43,7 @@ import { aplicarErrosDaApi } from '../../componentes/formulario';
 import { cicloInicial, SeletorCiclo } from '../../componentes/seletor-ciclo';
 
 /**
- * Ciclos (RF-07: criar e listar; ativar e encerrar ficam no P15) e o gestor responsável por cada
+ * Ciclos (RF-07: criar e listar; ativar e encerrar na tela Ciclos e consistência, P15) e o gestor responsável por cada
  * setor no ciclo (RF-05). Responsável só Gestor ativo.
  */
 export function AbaCiclos() {
