@@ -14,6 +14,7 @@ import { type Autor, AuditoriaService, type Transacao } from '../auditoria/audit
 import { ErroApi } from '../comum/erro-api.js';
 import { traduzirErroBanco } from '../comum/erros-banco.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ResultadosService } from '../resultados/resultados.service.js';
 
 type DadosVariavel = z.output<typeof VariavelEntradaSchema>;
 
@@ -91,6 +92,7 @@ export class VariaveisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly resultados: ResultadosService,
   ) {}
 
   async listar(cicloId: string, setorId?: string): Promise<Variavel[]> {
@@ -182,6 +184,8 @@ export class VariaveisService {
         if (dados.codigo !== antes.codigo) {
           await this.reescreverFormulas(tx, antes, dados.codigo, autor);
         }
+        // Acumulação ou situação da variável mudam o cálculo das metas que a usam (6.5).
+        await this.resultados.recalcularPorVariaveis(tx, [id]);
         const depois = paraVariavel(
           await tx.variavel.findUniqueOrThrow({ where: { id }, select: SELECAO }),
         );

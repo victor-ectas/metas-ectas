@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuditoriaModule } from '../auditoria/auditoria.service.js';
+import { ResultadosModule } from '../resultados/resultados.module.js';
 import {
   CiclosController,
   FeriadosController,
@@ -18,7 +19,7 @@ import { UsuariosService } from './usuarios.service.js';
  * ativação e encerramento do ciclo (P15).
  */
 @Module({
-  imports: [AuditoriaModule],
+  imports: [AuditoriaModule, ResultadosModule],
   controllers: [UsuariosController, SetoresController, CiclosController, FeriadosController],
   providers: [UsuariosService, SetoresService, CiclosService, ConsistenciaService, FeriadosService],
 })

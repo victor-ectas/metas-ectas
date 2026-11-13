@@ -21,6 +21,7 @@ import {
 import type { z } from 'zod';
 
 import { type Autor, AuditoriaModule } from '../auditoria/auditoria.service.js';
+import { ResultadosModule } from '../resultados/resultados.module.js';
 import { Perfis } from '../auth/decoradores.js';
 import { AutorDaRequisicao } from '../comum/autor.js';
 import { ValidacaoZod } from '../comum/validacao-zod.pipe.js';
@@ -87,7 +88,7 @@ export class VariaveisController {
 }
 
 @Module({
-  imports: [AuditoriaModule],
+  imports: [AuditoriaModule, ResultadosModule],
   controllers: [VariaveisController],
   providers: [VariaveisService],
 })

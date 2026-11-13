@@ -28,6 +28,7 @@ import { ErroApi } from '../comum/erro-api.js';
 import { traduzirErroBanco } from '../comum/erros-banco.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { carregarCiclo } from '../resultados/carregar-ciclo.js';
+import { ResultadosService } from '../resultados/resultados.service.js';
 
 type Cliente = PrismaService | Transacao;
 
@@ -88,6 +89,7 @@ export class ConsistenciaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
+    private readonly resultados: ResultadosService,
   ) {}
 
   /** Instante atual; separado para os testes. */
@@ -197,6 +199,8 @@ export class ConsistenciaService {
           throw new ErroApi(CodigoErro.STATUS_CICLO_INVALIDO, encerramento.motivo ?? '');
         }
 
+        // Tabelas de resultado em dia com a fotografia (especificação 6.5: ciclo inteiro).
+        await this.resultados.recalcularCiclo(tx, cicloId);
         const { entrada, metas } = await carregarCiclo(tx, cicloId);
         const resultado = calcularCiclo(entrada);
         const porMeta = new Map(resultado.metas.map((m) => [m.metaId, m]));

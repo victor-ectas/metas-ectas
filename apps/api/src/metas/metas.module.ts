@@ -24,6 +24,7 @@ import {
 import type { z } from 'zod';
 
 import { type Autor, AuditoriaModule } from '../auditoria/auditoria.service.js';
+import { ResultadosModule } from '../resultados/resultados.module.js';
 import { Perfis } from '../auth/decoradores.js';
 import { type UsuarioAtual, UsuarioLogado } from '../auth/usuario-atual.js';
 import { AutorDaRequisicao } from '../comum/autor.js';
@@ -115,7 +116,7 @@ export class FormulasController {
 }
 
 @Module({
-  imports: [AuditoriaModule],
+  imports: [AuditoriaModule, ResultadosModule],
   controllers: [MetasDoCicloController, MetasController, FormulasController],
   providers: [MetasService],
 })

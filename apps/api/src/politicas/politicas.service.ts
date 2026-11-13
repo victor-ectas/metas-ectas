@@ -72,6 +72,29 @@ export class PoliticasService {
     return regra(meta) || (meta.mae != null && regra(meta.mae));
   }
 
+  /**
+   * Resultados de um gestor (`GET /resultados/gestor/{id}`, 7.5):
+   * - `COMPLETO`: Admin e Diretoria, de qualquer gestor; o Gestor, os próprios. Metas e notas.
+   * - `SETORES`: Leitor, só as metas dos setores liberados e sem as notas (decisão de
+   *   13/11/2026: as notas somam metas que ele não vê).
+   * - `null`: sem acesso (Gestor olhando outro gestor, inativo).
+   */
+  acessoResultadosDoGestor(usuario: UsuarioAtual, gestorId: string): 'COMPLETO' | 'SETORES' | null {
+    if (this.veTudo(usuario)) return 'COMPLETO';
+    if (this.temPerfil(usuario, [Perfil.GESTOR]))
+      return usuario.id === gestorId ? 'COMPLETO' : null;
+    if (this.temPerfil(usuario, [Perfil.LEITOR])) return 'SETORES';
+    return null;
+  }
+
+  /**
+   * Pontos de cada gestor numa meta corporativa (RN-05): quem vê a meta vê os pontos de todos,
+   * menos o Gestor, que vê só a própria atribuição.
+   */
+  vePontosDeTodos(usuario: UsuarioAtual): boolean {
+    return !this.temPerfil(usuario, [Perfil.GESTOR]);
+  }
+
   /** Histórico de alterações (7.5): Admin e Diretoria, todos; Gestor, das próprias metas; Leitor, não. */
   podeVerHistorico(usuario: UsuarioAtual, meta: MetaParaAcesso): boolean {
     if (this.veTudo(usuario)) return true;

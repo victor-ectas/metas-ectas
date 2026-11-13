@@ -10,6 +10,7 @@ import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CadastrosModule } from './cadastros/cadastros.module.js';
 import { MetasModule } from './metas/metas.module.js';
+import { ResultadosModule } from './resultados/resultados.module.js';
 import { VariaveisModule } from './variaveis/variaveis.module.js';
 import { FiltroErros } from './comum/filtro-erros.js';
 import { LimiteEscritaGuard } from './comum/limite-escrita.guard.js';
@@ -81,6 +82,7 @@ export class AppModule {
         CadastrosModule,
         VariaveisModule,
         MetasModule,
+        ResultadosModule,
       ],
       providers: [
         // Ordem: limite de taxa antes do login (barra excesso sem consultar o banco).

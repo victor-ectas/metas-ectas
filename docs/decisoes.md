@@ -570,3 +570,41 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - O serviço `metas-jobs` fica para o P22, quando houver o que rodar; hoje o `apps/jobs` não tem processo.
 - A instalação real depende do certificado HTTPS, do registro do aplicativo no Entra ID (o mesmo que falta para fechar o P10) e da execução do roteiro no servidor.
 - Os backups ficam no próprio servidor; o roteiro pede à TI uma cópia em outro local.
+
+## ADR-023 — Serviço de resultados e recálculo por evento
+
+- **Data:** 13/11/2026
+- **Status:** Aceita
+- **Passo:** P17
+
+**Contexto.** O P17 pede o `ResultadosService`, que grava as tabelas de resultado na mesma transação da mudança, o recálculo por evento (especificação 6.5) e as rotas `GET /resultados/gestor/{id}` e `GET /resultados/meta/{id}`. A tabela 7.5 diz que o Leitor vê "os setores liberados a ele", sem dizer o que isso significa para as notas de um gestor.
+
+**Decisão do desenvolvedor (13/11/2026).** No resultado de um gestor, o Leitor vê só as metas dos setores liberados, com resultado e pontos de cada uma, e **não** vê as notas por bloco nem a final, que somam metas que ele não pode ver.
+
+**Decisões técnicas.**
+
+- **Recálculo dentro da transação de quem muda.** O escopo segue a especificação 6.5:
+  - meta criada, alterada ou inativada: recalcula a meta sem pai e as submetas;
+  - meta excluída: os resultados saem em cascata e as notas são refeitas;
+  - variável alterada: recalcula as metas que a usam, e as mães (`recalcularPorVariaveis`; o lançamento do P18 usa o mesmo gatilho);
+  - encerramento do ciclo: recalcula o ciclo inteiro antes da fotografia.
+
+  O motor só calcula as metas afetadas. As notas por gestor e bloco são refeitas por uma soma no banco (`INSERT … SELECT … GROUP BY`), que é barata: são cerca de 14 linhas por ciclo.
+
+- **Lock por ciclo** (`pg_advisory_xact_lock`) no recálculo, para dois recálculos do mesmo ciclo não se cruzarem; ele sai sozinho no fim da transação.
+- **Ciclo encerrado não recalcula**: as notas ficam congeladas (RN-32). `POST /ciclos/{id}/recalcular` responde `CICLO_ENCERRADO`.
+- **Meta inativa não tem resultado nem entra na nota**, coerente com a consistência (P15), que só soma os pesos das metas ativas. Ao reativar, o resultado volta.
+- **Gravação em lote**: as linhas mensais e as memórias de cálculo vão para o banco numa única instrução por tabela, com os dados num parâmetro `jsonb` (`jsonb_to_recordset`), sem concatenar SQL. O `createMany` do Prisma levava cerca de 420 ms das 1.800 linhas mensais de um ciclo de 150 metas, e o recálculo inteiro dava ~680 ms. Com o lote, o mesmo recálculo leva ~170 ms (o motor gasta ~70 ms).
+- **Números com 6 casas** (`numeric(18,6)`), sem arredondar para exibição: o arredondamento de 2 casas (5.4) fica com quem mostra.
+- **`POST /ciclos/{id}/recalcular`** (só Administrador): fora do plano, mas necessário. Os testes gravam lançamentos direto no banco, porque a API de lançamentos é o P18. Também serve depois de uma correção no banco, de uma publicação que mude o cálculo ou de uma carga histórica.
+- **`GET /resultados/meta/{id}`** pedido pelo id de uma submeta devolve a mãe, com as submetas. Meta que o usuário não pode ver responde 404, como se não existisse.
+- **Pontos numa meta corporativa**: o Gestor vê só a própria atribuição; Administrador, Diretoria e Leitor veem todas. É a opção mais restritiva, porque a 7.5 não diz se um gestor vê os pontos do colega.
+- **Permissões no `PoliticasService`**:
+  - `acessoResultadosDoGestor` devolve `COMPLETO`, `SETORES` ou `null`;
+  - `vePontosDeTodos` diz se o usuário vê os pontos de todos os gestores numa meta corporativa.
+
+**Consequências.**
+
+- O P18 chama `recalcularPorVariaveis` ao gravar os lançamentos.
+- O P20 lê `GET /resultados/*`.
+- Metas salvas antes do P17 não têm resultado até serem salvas de novo ou até `POST /ciclos/{id}/recalcular`.

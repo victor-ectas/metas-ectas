@@ -55,11 +55,21 @@ export interface CicloCarregado {
  * atribuições e os lançamentos das variáveis usadas (vazio = `null`, RN-08). A AST vem do banco,
  * gravada já validada ao salvar a meta (P13).
  *
- * Usado no encerramento do ciclo (P15); o serviço de resultados (P17) parte daqui.
+ * Usado pelo serviço de resultados (P17) e no encerramento do ciclo (P15). Com `raizIds`, carrega
+ * só essas metas sem pai (recálculo por evento, especificação 6.5).
  */
-export async function carregarCiclo(cliente: Cliente, cicloId: string): Promise<CicloCarregado> {
+export async function carregarCiclo(
+  cliente: Cliente,
+  cicloId: string,
+  raizIds?: readonly string[],
+): Promise<CicloCarregado> {
   const raizes = await cliente.meta.findMany({
-    where: { cicloId, metaPaiId: null, ativo: true },
+    where: {
+      cicloId,
+      metaPaiId: null,
+      ativo: true,
+      ...(raizIds === undefined ? {} : { id: { in: [...raizIds] } }),
+    },
     select: {
       ...CAMPOS,
       setor: { select: { codigo: true, corporativo: true } },

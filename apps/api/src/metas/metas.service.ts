@@ -25,6 +25,7 @@ import { ErroApi } from '../comum/erro-api.js';
 import { traduzirErroBanco } from '../comum/erros-banco.js';
 import { PoliticasService } from '../politicas/politicas.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ResultadosService } from '../resultados/resultados.service.js';
 
 type DadosMeta = z.output<typeof MetaEntradaSchema>;
 type DadosSubmeta = DadosMeta['submetas'][number];
@@ -185,6 +186,7 @@ export class MetasService {
     private readonly prisma: PrismaService,
     private readonly auditoria: AuditoriaService,
     private readonly politicas: PoliticasService,
+    private readonly resultados: ResultadosService,
   ) {}
 
   /** Metas sem pai do ciclo, só as que o usuário pode ver (7.5). */
@@ -243,6 +245,7 @@ export class MetasService {
           select: { id: true },
         });
         await this.gravarFilhos(tx, raiz.id, dados, formulas, autor);
+        await this.resultados.recalcularMetas(tx, [raiz.id]);
         const criada = await this.completar(tx, await this.carregar(tx, raiz.id));
         await this.auditoria.registrar(tx, autor, {
           entidade: 'meta',
@@ -302,6 +305,7 @@ export class MetasService {
           await tx.meta.deleteMany({ where: { id: { in: removidas.map((s) => s.id) } } });
         }
         await this.gravarFilhos(tx, id, dados, formulas, autor);
+        await this.resultados.recalcularMetas(tx, [id]);
         const depois = await this.completar(tx, await this.carregar(tx, id));
         await this.auditoria.registrar(tx, autor, {
           entidade: 'meta',
@@ -326,6 +330,8 @@ export class MetasService {
       await this.prisma.$transaction(async (tx) => {
         await tx.meta.deleteMany({ where: { metaPaiId: id } });
         await tx.meta.delete({ where: { id } });
+        // Os resultados saem em cascata; as notas dos gestores atribuídos mudam.
+        await this.resultados.recalcularNotas(tx, atual.cicloId);
         await this.auditoria.registrar(tx, autor, {
           entidade: 'meta',
           entidadeId: id,

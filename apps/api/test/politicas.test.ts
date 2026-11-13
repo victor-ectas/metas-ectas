@@ -157,6 +157,30 @@ describe('PoliticasService (CLAUDE.md 7.5)', () => {
     });
   });
 
+  describe('resultados de um gestor (P17)', () => {
+    it('Administrador e Diretoria veem tudo de qualquer gestor', () => {
+      expect(politicas.acessoResultadosDoGestor(admin, 'outro-gestor')).toBe('COMPLETO');
+      expect(politicas.acessoResultadosDoGestor(diretoria, 'outro-gestor')).toBe('COMPLETO');
+    });
+
+    it('Gestor vê só os próprios', () => {
+      expect(politicas.acessoResultadosDoGestor(gestor, gestor.id)).toBe('COMPLETO');
+      expect(politicas.acessoResultadosDoGestor(gestor, 'outro-gestor')).toBeNull();
+    });
+
+    it('Leitor vê só as metas dos setores liberados, sem as notas', () => {
+      expect(politicas.acessoResultadosDoGestor(leitor, 'outro-gestor')).toBe('SETORES');
+    });
+
+    it.each(inativos)('$perfil inativo não vê', (u) => {
+      expect(politicas.acessoResultadosDoGestor(u, u.id)).toBeNull();
+    });
+
+    it('pontos dos outros gestores numa meta corporativa: todos menos o Gestor', () => {
+      expect(TODOS.map((u) => politicas.vePontosDeTodos(u))).toEqual([true, true, false, true]);
+    });
+  });
+
   describe('lançar variáveis (pronto para o P18)', () => {
     it('só o Gestor responsável pelo lançamento', () => {
       expect(politicas.podeLancar(gestor, { responsavelId: gestor.id })).toBe(true);
