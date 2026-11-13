@@ -4,6 +4,7 @@ import type {
   Operador,
   OrigemVariavel,
   RegraPontuacao,
+  Situacao,
   StatusCiclo,
   TipoFeriado,
   TipoVariavel,
@@ -92,4 +93,12 @@ export const AJUDA_MODO_APURACAO: Readonly<Record<ModoApuracao, string>> = {
 export const ROTULO_REGRA_PONTUACAO: Readonly<Record<RegraPontuacao, string>> = {
   TUDO_OU_NADA: 'Tudo ou nada',
   PROPORCIONAL: 'Proporcional ao atendimento',
+};
+
+/** Situação da meta (RN-25). Sempre com texto, nunca só cor. */
+export const ROTULO_SITUACAO: Readonly<Record<Situacao, string>> = {
+  BATIDA: 'Batida',
+  ABAIXO: 'Abaixo',
+  FORA_DA_FAIXA: 'Fora da faixa',
+  SEM_DADOS: 'Sem dados',
 };

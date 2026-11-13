@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dataFechamento,
   diasUteis,
+  diasUteisRestantes,
   ehDiaUtil,
   noFusoDasRegras,
   type ReaberturaCalendario,
@@ -85,6 +86,32 @@ describe('data de fechamento (RN-34)', () => {
     expect(() => dataFechamento(2026, 10, quaseTodoNovembro)).toThrow(
       '11/2026 tem só 5 dias úteis; o fechamento precisa do 15º',
     );
+  });
+});
+
+describe('dias úteis restantes até o prazo (especificação 9.2)', () => {
+  const prazoOutubro = () => dataFechamento(2026, 10, FERIADOS_NOV_2026);
+
+  it('11/11/2026 até 24/11/2026, com feriado em 20/11 → 9 (conta hoje e o dia do prazo)', () => {
+    expect(diasUteisRestantes(sp('2026-11-11T08:00'), prazoOutubro(), FERIADOS_NOV_2026)).toBe(9);
+  });
+
+  it('no próprio dia do prazo → 1; depois do prazo → 0', () => {
+    expect(diasUteisRestantes(sp('2026-11-24T23:00'), prazoOutubro(), FERIADOS_NOV_2026)).toBe(1);
+    expect(diasUteisRestantes(sp('2026-11-25T00:00'), prazoOutubro(), FERIADOS_NOV_2026)).toBe(0);
+  });
+
+  it('fim de semana e feriado não contam, mesmo sendo hoje', () => {
+    // Sábado 21/11 até terça 24/11: segunda 23 e terça 24.
+    expect(diasUteisRestantes(sp('2026-11-21T10:00'), prazoOutubro(), FERIADOS_NOV_2026)).toBe(2);
+    // Sexta 20/11 (feriado) até 24/11: 23 e 24.
+    expect(diasUteisRestantes(sp('2026-11-20T10:00'), prazoOutubro(), FERIADOS_NOV_2026)).toBe(2);
+  });
+
+  it('o dia é o de São Paulo, não o de UTC (23h de 10/11 em SP já é 11/11 em UTC)', () => {
+    expect(
+      diasUteisRestantes(new Date('2026-11-11T02:00:00Z'), prazoOutubro(), FERIADOS_NOV_2026),
+    ).toBe(10);
   });
 });
 

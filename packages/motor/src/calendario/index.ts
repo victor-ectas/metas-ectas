@@ -2,6 +2,7 @@ export {
   dataFechamento,
   DIA_UTIL_DO_FECHAMENTO,
   diasUteis,
+  diasUteisRestantes,
   ehDiaUtil,
   type Instante,
   noFusoDasRegras,

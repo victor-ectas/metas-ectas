@@ -18,9 +18,13 @@ import {
 } from './enums.js';
 import { DecimalStringSchema, MesSchema, UuidSchema } from './schemas.js';
 
+/**
+ * Sem ciclo: o ciclo ativo. Sem mês: o mês aberto mais antigo com pendências (especificação 9.2),
+ * ou o último aberto.
+ */
 export const FiltroLancamentosSchema = z.object({
-  ciclo: UuidSchema,
-  mes: z.coerce.number().pipe(MesSchema),
+  ciclo: UuidSchema.optional(),
+  mes: z.coerce.number().pipe(MesSchema).optional(),
 });
 export type FiltroLancamentos = z.infer<typeof FiltroLancamentosSchema>;
 
@@ -79,6 +83,23 @@ export const MetaLancamentoSchema = DefinicaoMetaSchema.extend({
 });
 export type MetaLancamento = z.infer<typeof MetaLancamentoSchema>;
 
+/** Um mês do seletor da tela de lançamento. */
+export const MesLancamentoSchema = z.object({
+  mes: MesSchema,
+  /**
+   * Situação para o usuário. Fica `REABERTO` também quando a reabertura vale só para o setor de
+   * alguma das variáveis dele.
+   */
+  status: StatusMesSchema,
+  /** Fim do prazo de lançamento (15º dia útil do mês seguinte), ISO 8601. */
+  fechaEm: z.string(),
+  /** Dias úteis de hoje até o prazo, contando os dois; `null` fora de mês aberto. */
+  diasUteisRestantes: z.number().int().nullable(),
+  /** Variáveis do usuário ainda vazias no mês. */
+  pendentes: z.number().int(),
+});
+export type MesLancamento = z.infer<typeof MesLancamentoSchema>;
+
 /** `GET /lancamentos?ciclo&mes`. */
 export const LancamentosMesSchema = z.object({
   ciclo: z.object({ id: UuidSchema, ano: z.number().int(), status: StatusCicloSchema }),
@@ -87,6 +108,8 @@ export const LancamentosMesSchema = z.object({
   status: StatusMesSchema,
   /** Fim do prazo de lançamento do mês (15º dia útil do mês seguinte), ISO 8601. */
   fechaEm: z.string(),
+  /** Os 12 meses do ciclo, para o seletor. */
+  meses: z.array(MesLancamentoSchema).length(12),
   /** Administrador: lança como carga histórica, em qualquer mês (RN-38). */
   cargaHistorica: z.boolean(),
   variaveis: z.array(VariavelLancamentoSchema),

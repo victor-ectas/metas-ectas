@@ -653,3 +653,44 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 
 - A tela de lançamento (P19) usa o GET para montar a tela e a prévia, e o PUT para salvar, tratando `CONFLITO_VERSAO` com o valor atual.
 - A importação (P24) reaproveita as mesmas regras de permissão, trava e valor.
+
+## ADR-025 — Tela de lançamentos
+
+- **Data:** 13/11/2026
+- **Status:** Aceita
+- **Passo:** P19
+
+**Contexto.** O P19 pede a tela de lançamento pensada primeiro para o celular, com estes elementos:
+
+- seletor de mês com os estados e o prazo ("fecha em 24/11, faltam 9 dias úteis");
+- variáveis agrupadas por meta, com a compartilhada aparecendo uma vez;
+- vírgula decimal, percentual de 0 a 100 e SIM/NÃO como escolha;
+- prévia do mês e do acumulado com o motor;
+- salvar em lote e tratar o conflito mostrando o valor atual.
+
+A API do P18 devolvia um mês por vez e exigia o ciclo, mas o Gestor não lista os ciclos (a rota é só do Administrador).
+
+**Decisões técnicas.**
+
+- **Complemento da API do P18**:
+  - `ciclo` e `mes` ficam opcionais. Sem eles, vale o ciclo ativo e o mês aberto mais antigo com pendências, como na especificação 9.2; sem pendências, o último aberto; sem mês aberto, o corrente. Sem ciclo ativo, a resposta é `NAO_ENCONTRADO` com "Não há ciclo ativo para lançamento.".
+  - A resposta ganha `meses`, com os 12 meses para o seletor: status para o usuário (fica `REABERTO` se a reabertura valer para o setor de alguma variável dele), prazo, dias úteis restantes e pendências (variáveis dele vazias no mês).
+- **Motor**: `diasUteisRestantes(agora, prazo, feriados)` conta os dias úteis de hoje até o dia do prazo, incluindo os dois (em 11/11/2026, com o prazo em 24/11 e feriado em 20/11, dá 9), no dia de São Paulo. Tem testes, e a cobertura de 100% se mantém.
+- **Camada pura** (`paginas/lancamentos/lancamento.ts`), testada à parte:
+  - `lerCampo` aplica as regras do valor do ADR-024 (casas contadas no digitado; SIM/NÃO 1, 0 ou vazio);
+  - `agrupar` põe cada variável do usuário na primeira meta que a usa; nas metas seguintes ela aparece como "Também usa…, lançada acima", e as de outros setores aparecem com o valor, só para leitura;
+  - `previa` roda o `calcularMeta` do motor com os valores do ano, trocando os do mês pelo que está digitado.
+- **Tela** (`/lancamentos`, só para o Gestor no menu):
+  - meses em grade (6 por linha no celular, 12 no desktop), com cadeado no fechado, ponto nas pendências e o futuro desabilitado; o nome acessível diz o estado ("Janeiro, fechado");
+  - o mês fica na URL (`?mes=`), e trocar de mês com valores não salvos pede confirmação;
+  - um cartão por meta, com os campos e a prévia (resultado do mês, acumulado, objetivo e situação, sempre com texto);
+  - SIM/NÃO em botões, e clicar de novo deixa vazio (vazio não é "Não", RN-08);
+  - barra de salvar fixa embaixo, com área segura do iPhone, que mostra quantos valores mudaram e bloqueia enquanto houver valor inválido ou conflito sem decisão;
+  - no `CONFLITO_VERSAO`, cada campo em conflito mostra o valor que a outra pessoa salvou, com a hora, e as opções "Usar o salvo" ou "Manter o meu". Os dados são recarregados, e o seu valor continua digitado com a versão nova.
+- **Banco de dev**: para conferir a tela com mês aberto, foi criado um ciclo 2026 ativo de exemplo, com as variáveis do CT-01 e uma de SIM/NÃO do Fiscal, duas metas do Leonardo e janeiro a setembro lançados como carga histórica. Conferido no Edge em 1440 e 360 px, como Gestor, digitando e vendo a prévia.
+
+**Consequências.**
+
+- Minhas metas (P20) lê os resultados gravados.
+- O E2E do P21 percorre esta tela.
+- O Administrador lança pela importação (P24): a tela não aparece no menu dele, mas a API aceita a carga histórica.

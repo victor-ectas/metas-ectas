@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@metas/prisma';
-import { dataFechamento, Decimal, noFusoDasRegras, statusMes } from '@metas/motor';
+import {
+  dataFechamento,
+  Decimal,
+  diasUteisRestantes,
+  noFusoDasRegras,
+  statusMes,
+} from '@metas/motor';
 import {
   CodigoErro,
   type ConflitoLancamento,
@@ -8,6 +14,7 @@ import {
   type LancamentosEntrada,
   type LancamentosMes,
   type LancamentosSalvos,
+  type MesLancamento,
   type MetaLancamento,
   OrigemLancamento,
   Perfil,
@@ -124,8 +131,14 @@ export class LancamentosService {
   // Consulta
   // ---------------------------------------------------------------------------------------------
 
-  async consultar(usuario: UsuarioAtual, cicloId: string, mes: number): Promise<LancamentosMes> {
-    const ciclo = await this.obterCiclo(cicloId);
+  async consultar(
+    usuario: UsuarioAtual,
+    cicloPedido: string | undefined,
+    mesPedido: number | undefined,
+  ): Promise<LancamentosMes> {
+    const ciclo =
+      cicloPedido === undefined ? await this.cicloAtivo() : await this.obterCiclo(cicloPedido);
+    const cicloId = ciclo.id;
     const carga = this.politicas.podeFazerCargaHistorica(usuario);
     const calendario = await this.calendario(this.prisma, ciclo.id, ciclo.ano);
     const agora = this.relogio.agora();
@@ -188,6 +201,34 @@ export class LancamentosService {
     });
     const porChave = new Map(lancamentos.map((l) => [`${l.variavelId}:${String(l.mes)}`, l]));
 
+    // Seletor de meses: status para o usuário, prazo, dias úteis e pendências (9.2).
+    const minhas = mostradas.filter((v) => editaveis.has(v.id));
+    const meses: MesLancamento[] = Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1;
+      let status = this.status(calendario, m, agora, this.reaberturasDe(calendario, usuario, null));
+      const reabertaParaAlguma = minhas.some(
+        (v) =>
+          this.status(calendario, m, agora, this.reaberturasDe(calendario, usuario, v)) ===
+          StatusMes.REABERTO,
+      );
+      if (status === StatusMes.FECHADO && reabertaParaAlguma) status = StatusMes.REABERTO;
+      const prazo = dataFechamento(ciclo.ano, m, calendario.feriados);
+      return {
+        mes: m,
+        status,
+        fechaEm: prazo.toJSDate().toISOString(),
+        diasUteisRestantes:
+          status === StatusMes.ABERTO
+            ? diasUteisRestantes(agora, prazo, calendario.feriados)
+            : null,
+        pendentes: minhas.filter((v) => {
+          const l = porChave.get(`${v.id}:${String(m)}`);
+          return l === undefined || l.valor === null;
+        }).length,
+      };
+    });
+    const mes = mesPedido ?? this.mesInicial(meses, ciclo.ano, agora);
+
     const variaveis: VariavelLancamento[] = mostradas.map((v) => {
       const doMes = porChave.get(`${v.id}:${String(mes)}`);
       return {
@@ -247,6 +288,7 @@ export class LancamentosService {
       mes,
       status: this.status(calendario, mes, agora, this.reaberturasDe(calendario, usuario, null)),
       fechaEm: dataFechamento(ciclo.ano, mes, calendario.feriados).toJSDate().toISOString(),
+      meses,
       cargaHistorica: carga,
       variaveis,
       metas,
@@ -495,6 +537,35 @@ export class LancamentosService {
   // ---------------------------------------------------------------------------------------------
   // Apoio
   // ---------------------------------------------------------------------------------------------
+
+  /**
+   * Mês mostrado quando a tela não pede um (especificação 9.2): o aberto mais antigo com
+   * pendências; senão, o último aberto; senão, o mês corrente (ou o mais próximo dele no ciclo).
+   */
+  private mesInicial(meses: readonly MesLancamento[], ano: number, agora: Date): number {
+    const abertos = meses.filter(
+      (m) => m.status === StatusMes.ABERTO || m.status === StatusMes.REABERTO,
+    );
+    const comPendencia = abertos.find((m) => m.pendentes > 0);
+    if (comPendencia !== undefined) return comPendencia.mes;
+    const ultimoAberto = abertos.at(-1);
+    if (ultimoAberto !== undefined) return ultimoAberto.mes;
+    const hoje = noFusoDasRegras(agora);
+    if (hoje.year < ano) return 1;
+    if (hoje.year > ano) return 12;
+    return hoje.month;
+  }
+
+  private async cicloAtivo() {
+    const ciclo = await this.prisma.ciclo.findFirst({
+      where: { status: StatusCiclo.ATIVO },
+      select: { id: true, ano: true, status: true },
+    });
+    if (ciclo === null) {
+      throw new ErroApi(CodigoErro.NAO_ENCONTRADO, 'Não há ciclo ativo para lançamento.');
+    }
+    return ciclo;
+  }
 
   private async obterCiclo(id: string) {
     const ciclo = await this.prisma.ciclo.findUnique({

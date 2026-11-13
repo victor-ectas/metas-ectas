@@ -32,7 +32,7 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     rotulo: 'Lançamentos',
     secao: 'GERAL',
     perfis: [GESTOR],
-    passo: 'P19',
+    passo: null,
   },
   {
     caminho: '/importacao',

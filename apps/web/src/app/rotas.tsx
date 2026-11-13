@@ -4,6 +4,7 @@ import { PaginaCadastros } from '../paginas/cadastros/pagina-cadastros';
 import { PaginaCiclos } from '../paginas/ciclos/pagina-ciclos';
 import { EmConstrucao } from '../paginas/em-construcao';
 import { Inicio } from '../paginas/inicio';
+import { PaginaLancamentos } from '../paginas/lancamentos/pagina-lancamentos';
 import { EditorMeta } from '../paginas/metas/editor-meta';
 import { PaginaMetas } from '../paginas/metas/pagina-metas';
 import { NaoEncontrada } from '../paginas/nao-encontrada';
@@ -23,6 +24,7 @@ export function criarRotas(): RouteObject[] {
         { path: 'metas/nova', element: <EditorMeta /> },
         { path: 'metas/:id', element: <EditorMeta /> },
         { path: 'ciclos', element: <PaginaCiclos /> },
+        { path: 'lancamentos', element: <PaginaLancamentos /> },
         ...ITENS_MENU.filter((item) => item.passo !== null).map((item) => ({
           path: item.caminho.slice(1),
           element: <EmConstrucao item={item} />,

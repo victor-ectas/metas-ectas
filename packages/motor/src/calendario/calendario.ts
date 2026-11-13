@@ -82,6 +82,27 @@ export function diasUteis(ano: number, mes: number, feriados: Iterable<string>):
 }
 
 /**
+ * Dias úteis de hoje (no fuso das regras) até o dia do prazo, contando os dois, para o aviso
+ * "fecha em 24/11, faltam 9 dias úteis" (especificação 9.2). Prazo já passado → 0.
+ * Ex.: em 11/11/2026, com o prazo em 24/11/2026 e feriado em 20/11 → 9.
+ */
+export function diasUteisRestantes(
+  agora: Instante,
+  prazo: Instante,
+  feriados: Iterable<string>,
+): number {
+  const conjunto = conjuntoDeFeriados(feriados);
+  const fim = noFusoDasRegras(prazo).startOf('day');
+  let dia = noFusoDasRegras(agora).startOf('day');
+  let total = 0;
+  while (dia <= fim) {
+    if (dia.weekday <= 5 && !conjunto.has(dia.toISODate() as string)) total++;
+    dia = dia.plus({ days: 1 });
+  }
+  return total;
+}
+
+/**
  * Fim da janela de lançamento do mês M: 23:59:59.999 (America/Sao_Paulo) do 15º dia útil de
  * M+1, contando a partir do 1º dia útil de M+1, inclusive (RN-34). Ex.: outubro/2026, com
  * feriados em 02/11 e 20/11 → 24/11/2026 23:59:59.999.

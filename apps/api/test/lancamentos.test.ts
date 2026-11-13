@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { dataFechamento } from '@metas/motor';
+import { dataFechamento, diasUteisRestantes } from '@metas/motor';
 import {
   type ConflitoLancamento,
   type ErroApi as CorpoErro,
@@ -188,6 +188,29 @@ describe('GET /lancamentos', () => {
     const meta = r.metas.find((m) => m.id === ct01.id);
     expect(meta?.variaveis).toMatchObject({ REQ_ATENDIDOS: v.atendidos, TOTAL_REQ: v.total });
     expect(r.fechaEm).toBe(dataFechamento(ANO_ATIVO, 2, []).toJSDate().toISOString());
+  });
+
+  it('sem ciclo e sem mês: ciclo ativo e o mês aberto mais antigo com pendências (9.2)', async () => {
+    const r = await como(julia).get('/lancamentos');
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const mesAtual = LancamentosMesSchema.parse(r.body);
+    expect(mesAtual.ciclo.id).toBe(cicloId);
+    expect(mesAtual.mes).toBe(2);
+    const prazo = dataFechamento(ANO_ATIVO, 2, []);
+    expect(mesAtual.meses[1]).toEqual({
+      mes: 2,
+      status: 'ABERTO',
+      fechaEm: prazo.toJSDate().toISOString(),
+      diasUteisRestantes: diasUteisRestantes(AGORA, prazo, []),
+      pendentes: 5,
+    });
+    expect(mesAtual.meses.map((m) => m.status)).toEqual([
+      'FECHADO',
+      'ABERTO',
+      'ABERTO',
+      ...Array<string>(9).fill('FUTURO'),
+    ]);
+    expect(mesAtual.meses[0]?.diasUteisRestantes).toBeNull();
   });
 
   it('status do mês: janeiro fechado, abril futuro', async () => {
