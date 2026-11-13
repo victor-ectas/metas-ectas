@@ -91,5 +91,16 @@ packages/
   tipos/      enums, DTOs e schemas Zod compartilhados
 prisma/       esquema, migrações, seed, testes do banco e client Prisma (@metas/prisma)
 docker/       scripts do PostgreSQL de desenvolvimento
+deploy/       empacotamento e scripts do servidor de produção
 docs/         especificação, decisões e roteiros
+```
+
+## Produção
+
+O sistema roda num Windows Server interno: IIS (site estático e proxy de `/api`), a API como serviço do Windows (NSSM) e PostgreSQL 17. O roteiro completo, da preparação do servidor ao backup, está em [docs/deploy-windows.md](docs/deploy-windows.md).
+
+Para gerar o pacote de instalação (na raiz, com o banco de desenvolvimento no ar e tudo commitado):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\empacotar.ps1
 ```

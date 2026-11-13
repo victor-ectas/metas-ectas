@@ -493,3 +493,80 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - **Testes da web** com limite de 15 s: telas com digitação simulada levam 1–2 s sozinhas, mas passavam dos 5 s padrão com 12 arquivos em paralelo no Windows.
 
 **Consequências.** O P17 grava `resultado_*` e `nota_gestor` partindo do `carregarCiclo`. A reabertura (P23) já entra na regra do encerramento. O ciclo de teste `ANO_FECHADO` (2003) foi criado para os testes de encerramento; a limpeza dos testes da API também apaga `nota_fechamento` e `reabertura`.
+
+## ADR-022 — Empacotamento e instalação em produção
+
+- **Data:** 13/11/2026
+- **Status:** Aceita
+- **Passo:** P16
+
+**Contexto.** O P16 pede o roteiro de instalação no Windows Server (IIS + URL Rewrite + ARR, NSSM, PostgreSQL), o script de deploy e a instalação em produção. Respostas do desenvolvedor (12/11/2026):
+
+- o PostgreSQL 17 fica no mesmo servidor do IIS;
+- o certificado HTTPS ainda não está definido;
+- o pacote é gerado na máquina de desenvolvimento e copiado para o servidor;
+- o servidor tem saída para a internet.
+
+**Decisões técnicas.**
+
+- **Pacote único** (`deploy/empacotar.ps1`, cerca de 115 MB). Contém:
+  - a API montada com `pnpm deploy --prod --legacy` e `node-linker=hoisted`, um `node_modules` plano sem nenhum link: os 753 links do pnpm não sobrevivem a um `.zip` no Windows;
+  - a web estática com o `web.config`;
+  - as migrações;
+  - os scripts do servidor;
+  - um `versao.json`.
+
+  O servidor não precisa de pnpm nem de acesso ao npm. A compactação usa o `tar.exe` do Windows, porque o `Compress-Archive` é lento e frágil com 20 mil arquivos. O maior caminho do pacote tem 187 caracteres; com `D:\metas\versoes\<versão>\` cabe nos 260 do Windows.
+
+- **Prisma CLI em produção**: `prisma` passou de dependência de desenvolvimento para dependência do `@metas/prisma`, porque as migrações rodam no servidor. A versão continua fixada pelo catálogo e pelo lockfile. `banco/migrar.mjs` chama o CLI do pacote da API com um `prisma.config.mjs` sem `.env` e só aceita `deploy` e `status`.
+- **Build da web**: as `VITE_*` de produção vêm de `deploy/producao-web.env`, fora do git. `VITE_API_URL=/api/v1` vai explícito: no Windows, definir uma variável como texto vazio a apaga, e o Vite usaria o valor do `.env` de desenvolvimento, que o teste pegou. O empacotamento recusa o build se o JavaScript contiver `localhost:3000`, `localhost:5173` ou `X-Usuario-Dev`.
+- **Configuração da API** em `D:\metas\config\api.env`, lida com `node --env-file`. Em produção a API não procura nenhum `.env` (`main.ts`).
+  - A pasta `config` é só de Administradores e SYSTEM. A conta do serviço ganha leitura apenas do `api.env`, nunca do `migracao.env` nem do `pgpass.conf`, que guardam a senha do dono do banco.
+- **Serviço `metas-api`** (NSSM):
+  - conta LOCAL SERVICE;
+  - início automático atrasado e reinício em 5 s;
+  - logs com rotação a cada 10 MB;
+  - `TZ=America/Sao_Paulo`.
+
+  A API escuta só em `127.0.0.1:3000`.
+
+- **IIS** (`web.config`):
+  - HTTP só redireciona para HTTPS;
+  - `/api/*` vai para o Node pelo ARR, com o proxy ligado no servidor e 2 minutos de limite;
+  - qualquer caminho que não seja arquivo cai no `index.html`;
+  - cabeçalhos de segurança no site: CSP com `connect-src` e `frame-src` do `login.microsoftonline.com` e `style-src 'unsafe-inline'` por causa do MUI, HSTS, `nosniff`, `SAMEORIGIN`, `no-referrer`. O IIS não os repete nas respostas da API, que tem os próprios (helmet);
+  - cache longo em `/assets` e nenhum no `index.html`.
+- **Publicação** (`publicar.ps1`):
+  1. extrai em `versoes\<versão>`;
+  2. faz backup;
+  3. para o serviço e aplica `prisma migrate deploy`;
+  4. aponta o serviço (parâmetros do NSSM) e o site (`physicalPath`) para a pasta nova;
+  5. confere `/api/v1/saude` por até 60 s e volta sozinho para a versão anterior se a API não responder;
+  6. guarda as 5 versões mais recentes.
+
+  `voltar-versao.ps1` aponta de novo para uma versão já extraída; o banco não volta, porque as migrações só acrescentam.
+
+- **Banco**: `criar-banco.sql` cria `metas_owner` (dono do esquema), `metas_app` (só dados, privilégios padrão para o que as migrações criarem) e o banco com o esquema `public` fechado.
+- **Primeiro Administrador**: `criar-admin.sql` pré-cadastra pelo e-mail (idempotente) e registra `CRIAR_ADMIN_INSTALACAO` na auditoria. O seed recusa produção, e quem entra sozinho vira Leitor inativo; no primeiro login, a API liga o `oid` ao cadastro (P09).
+- **Backup**: `backup.ps1` roda `pg_dump` em formato custom, com a senha no `pgpass.conf`.
+  - Confere o arquivo com `pg_restore --list` e apaga os backups com mais de 30 dias.
+  - `-Agendar` cria a tarefa diária das 02:00 (SYSTEM).
+  - `testar-restauracao.ps1` restaura o último backup num banco temporário, compara as contagens das tabelas principais e apaga o temporário.
+- **Scripts `.ps1`** em UTF-8 com BOM e CRLF (`.editorconfig`): o Windows PowerShell 5.1 lê sem BOM como ANSI e corrompia os acentos, o que o teste pegou.
+
+**Como foi testado (13/11/2026), sem IIS nesta máquina.**
+
+- Pacote gerado pelo `empacotar.ps1` e extraído com o `tar` do Windows.
+- `criar-banco.sql`, `migrar.mjs deploy` e `criar-admin.sql` (duas vezes) num PostgreSQL 17.11 novo e descartável.
+- O `metas_app` não cria tabela, não desliga trigger e não apaga a auditoria.
+- A API do pacote subiu com `node --env-file`: saúde ok, `/me` sem token 401, documentação 404, e `AUTH_DEV=true` recusado.
+- `backup.ps1` gerou e conferiu o backup e apagou um backup de 31 dias; `testar-restauracao.ps1` restaurou e comparou.
+- A web do pacote foi servida com os cabeçalhos lidos do `web.config` e o proxy de `/api`. No Edge, nenhuma violação de CSP nem erro, e o MSAL redirecionou para o login da Microsoft.
+- Os seis `.ps1` passam no analisador do PowerShell 5.1.
+- Não testados aqui, por dependerem do servidor: `instalar-servico.ps1` (IIS, ARR, NSSM, permissões) e o fluxo do `publicar.ps1` com o NSSM e o IIS.
+
+**Consequências.**
+
+- O serviço `metas-jobs` fica para o P22, quando houver o que rodar; hoje o `apps/jobs` não tem processo.
+- A instalação real depende do certificado HTTPS, do registro do aplicativo no Entra ID (o mesmo que falta para fechar o P10) e da execução do roteiro no servidor.
+- Os backups ficam no próprio servidor; o roteiro pede à TI uma cópia em outro local.

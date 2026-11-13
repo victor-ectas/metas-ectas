@@ -450,6 +450,9 @@ importers:
       pg:
         specifier: 'catalog:'
         version: 8.23.1
+      prisma:
+        specifier: 'catalog:'
+        version: 7.10.1(@types/node@24.19.2)(@types/react-dom@18.3.7(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -460,9 +463,6 @@ importers:
       dotenv:
         specifier: 'catalog:'
         version: 18.0.10
-      prisma:
-        specifier: 'catalog:'
-        version: 7.10.1(@types/node@24.19.2)(@types/react-dom@18.3.7(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
       tsx:
         specifier: 'catalog:'
         version: 4.23.15

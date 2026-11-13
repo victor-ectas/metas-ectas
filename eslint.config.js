@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   {
-    ignores: ['**/node_modules/', '**/dist/', '**/coverage/', 'prisma/src/generated/'],
+    ignores: ['**/node_modules/', '**/dist/', '**/coverage/', 'prisma/src/generated/', 'pacotes/'],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -34,5 +34,10 @@ export default defineConfig(
     // Arquivos JavaScript de configuração não fazem parte de nenhum tsconfig.
     files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    // Scripts do servidor de produção (P16): rodam direto no Node.
+    files: ['deploy/**/*.mjs'],
+    languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
   },
 );

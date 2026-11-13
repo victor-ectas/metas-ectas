@@ -26,3 +26,7 @@ logs/
 Thumbs.db
 .idea/
 ~$*
+
+# Pacotes de instalação (deploy/empacotar.ps1) e variáveis de produção da web
+pacotes/
+deploy/producao-web.env
