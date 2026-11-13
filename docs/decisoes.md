@@ -808,3 +808,101 @@ No meio do passo, às 13:16 de 13/11/2026, o WinGet atualizou o Node da máquina
 - Vale pedir à TI para não atualizar o Node automaticamente nas máquinas de desenvolvimento e no servidor.
 - **O P21 fica parcial:** a publicação e o aceite ("gestores lançam janeiro/2027 em produção") dependem da instalação do P16 e de janeiro.
 - O E2E da importação (P28) segue o mesmo modelo: um cenário no `preparar-banco.ts` e um teste novo em `e2e/`.
+
+## ADR-028 — Serviço de jobs e rotina diária do fechamento
+
+- **Data:** 13/11/2026
+- **Status:** Aceita
+- **Passo:** P22
+
+**Contexto.** O P22 pede um serviço com pg-boss e um job diário às 00h05 (America/Sao_Paulo) que "atualiza o status dos meses e encerra as reaberturas vencidas". Pelas decisões anteriores, porém:
+
+- o status do mês não é gravado em lugar nenhum: a API calcula o status na hora, em toda leitura e gravação (RN-35, ADR-024), então o mês trava às 00h00 sem depender do job;
+- a reabertura deixa de valer sozinha quando passa a data-limite (`valido_ate`, RN-36). O campo `cancelada_em` é do cancelamento antecipado pelo Administrador (P23).
+
+**Decisões do desenvolvedor (13/11/2026).**
+
+- O job registra na **auditoria**, como ação do sistema (usuário vazio, como já previsto no esquema), e no log de execução:
+  - cada mês que fechou no dia anterior, com as pendências de cada gestor naquele momento;
+  - cada reabertura que venceu;
+  - a própria execução do dia.
+
+  Nada muda nas regras. Fica um histórico consultável, e a lista de pendências já pronta para o e-mail à Diretoria da Fase 2.
+
+- **Recuperar os dias perdidos:** se o serviço ficou parado, ao voltar ele processa cada dia desde a última execução registrada.
+
+**Decisões técnicas.**
+
+- **Registros na `auditoria`** (`usuario_id` nulo):
+
+  | Entidade         | `entidade_id`    | Ação          | Conteúdo                                                                                             |
+  | ---------------- | ---------------- | ------------- | ---------------------------------------------------------------------------------------------------- |
+  | `fechamento_mes` | `<ciclo>:<mês>`  | `MES_FECHADO` | `ano`, `mes`, `fechouEm`; `pendencias` (`usuarioId`, `nome`, `pendentes`, `total`); `semResponsavel` |
+  | `reabertura`     | id da reabertura | `VENCIDA`     | ciclo, mês, escopo e `validoAte`                                                                     |
+  | `rotina_diaria`  | `aaaa-mm-dd`     | `EXECUTADA`   | `executadaEm`, os meses fechados e as reaberturas vencidas                                           |
+
+  O registro `rotina_diaria` também marca o último dia processado.
+
+- **Regras da rotina** (`apps/jobs/src/rotina-diaria.ts`):
+  - **Dia de referência:** ontem, em São Paulo.
+  - **Mês fechado:** `dataFechamento` do motor (o mesmo da API) cai no dia, em ciclos ativos ou encerrados do ano do dia e do anterior. Dezembro fecha em janeiro do ano seguinte; ciclo em rascunho fica de fora.
+  - **Pendências:** a mesma regra do Início (P20). Contam as variáveis ativas vazias no mês, por quem responde (RN-07): no Corporativo, o responsável da variável; nos outros setores, o responsável do setor no ciclo. Variável sem responsável conta em `semResponsavel`.
+  - **Reabertura vencida:** `valido_ate` dentro do dia, sem cancelamento antes da data-limite.
+- **Execução segura:**
+  - Cada dia roda numa transação, com lock consultivo (`pg_advisory_xact_lock`).
+  - Um dia já registrado não é processado de novo, então repetir não duplica.
+  - Na primeira execução, a rotina processa só o dia anterior.
+  - A recuperação vai no máximo **62 dias** para trás; os que sobram vão para o log como aviso.
+  - O retrato das pendências é do momento da execução. Depois do prazo, só o Administrador muda valores (carga histórica).
+- **Avisos:** a interface `Notificador` é chamada depois que o dia foi gravado. Hoje ela é o `NotificadorSemEmail`, que só escreve no log, sem nomes nem e-mails. Os e-mails da Fase 2 (P30) entram implementando essa interface.
+- **pg-boss 12.38.0:**
+  - fila `rotina-diaria` com política `singleton` e 3 tentativas de 5 em 5 minutos;
+  - cron `5 0 * * *` com `tz: America/Sao_Paulo`;
+  - uma execução logo ao iniciar, para recuperar os dias perdidos (por isso o `missed` do pg-boss fica no padrão `skip`);
+  - parada limpa com Ctrl+C (SIGINT), que é como o NSSM para o serviço, com até 30 s para a rotina em andamento terminar.
+- **Schema `pgboss` sem privilégio a mais:**
+  - O `metas_app` não pode criar schemas, e o `CREATE SCHEMA IF NOT EXISTS` do pg-boss falha mesmo com o schema já existindo. Isso foi testado no PostgreSQL 17.
+  - A migração `schema_pgboss` cria o schema com o dono do esquema e dá ao `metas_app` só `USAGE` e `CREATE` nele.
+  - O serviço inicia o pg-boss com `createSchema: false`. As tabelas da fila ficam do `metas_app`, sem nenhum privilégio no `public` nem no banco.
+- **Configuração:**
+  - Zod com `NODE_ENV`, `DATABASE_URL` e `LOG_LEVEL`.
+  - Em produção, o serviço lê o mesmo `api.env` da API com `node --env-file`; em desenvolvimento, o `.env` da raiz.
+  - O relógio é recebido de fora (`agora`), e os testes usam um relógio simulado.
+- **Desenvolvimento:** `pnpm dev` sobe também os jobs (`tsx watch` com a condição `@metas/source`).
+- **Deploy:**
+  - O `empacotar.ps1` monta `jobs/` com `pnpm deploy`.
+  - O `instalar-servico.ps1` cria o serviço `metas-jobs` no NSSM: LOCAL SERVICE, 35 s para parar e logs `jobs.log` e `jobs-erros.log`.
+  - O `publicar.ps1` para os dois serviços antes das migrações e só sobe os jobs depois que a API responde. Em caso de volta de versão, sobe os jobs se a versão anterior os tiver. O script também recusa publicar sem o serviço instalado.
+  - O `voltar-versao.ps1` faz o mesmo.
+- **Tipos do React:**
+  - O CLI do Prisma, que a web usa desde o P21 no preparo do E2E, traz o Prisma Studio com `@types/react` 19.
+  - Com as dependências novas, o içamento do pnpm passou a misturar esses tipos com os do React 18 nos tipos do MUI, e a checagem de tipos da web quebrou.
+  - `overrides` agora fixa `@types/react` 18.3.31 e `@types/react-dom` 18.3.7 no monorepo, como o `react-is` do ADR-014.
+
+**Testes.**
+
+- `apps/jobs`, 15 testes:
+  - **rotina** (no banco de testes real, como `metas_app`, cada caso numa transação desfeita, com relógio simulado):
+    - CT-18: outubro/2026 fecha em 24/11 e a rotina de 25/11 00h05 registra as pendências da Ana (1 de 2), do Bruno no Corporativo (1 de 1) e 1 variável sem responsável; a variável inativa não conta;
+    - na véspera, às 23h59, ainda não há mês fechado;
+    - dezembro/2026 fecha em 22/01/2027;
+    - recuperação de 4 dias sem repetir o mês;
+    - repetição sem duplicar;
+    - reabertura vencida registrada e cancelada ignorada;
+    - ciclo em rascunho fica de fora;
+  - **dias a processar:** a primeira execução, nada a fazer, a virada do ano e o limite de 62 dias;
+  - **pg-boss:** sobe como `metas_app` no schema da migração, agenda às 00h05 em São Paulo e roda ao iniciar;
+  - **configuração.**
+- **Conferido também:**
+  - o serviço compilado rodando contra o banco de desenvolvimento: registrou 12/11 e as tabelas do `pgboss` ficaram do `metas_app`;
+  - o pacote montado com `pnpm deploy`, rodando fora do monorepo com `NODE_ENV=production`;
+  - o `pnpm dev` dos jobs;
+  - a sintaxe dos quatro scripts PowerShell.
+
+**Consequências.**
+
+- **O P22 fica parcial:** o aceite "serviço instalado via NSSM" depende do servidor (P16).
+- Servidor instalado antes do P22 precisa rodar o `instalar-servico.ps1` de novo antes de publicar.
+- O P23 (reabertura) grava o cancelamento em `cancelada_em`. A rotina já trata a reabertura cancelada.
+- O P30 (e-mails) implementa o `Notificador` e pode ler as pendências do registro `fechamento_mes`.
+- Uma tela de histórico (Fase 2 ou P26) pode listar os registros do sistema pela auditoria.

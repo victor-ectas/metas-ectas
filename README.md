@@ -25,7 +25,7 @@ cp .env.example .env   # preencha as senhas (o .env nunca vai para o git)
 pnpm db:subir          # sobe o PostgreSQL no Docker (cria usuários e bancos na 1ª vez)
 pnpm db:migrar         # aplica as migrações no banco de desenvolvimento
 pnpm db:seed           # Administrador (SEED_ADMIN_EMAIL), setores, ciclo e feriados de exemplo
-pnpm dev               # compila tipos/motor/prisma e sobe a API e a web (jobs entram no P22)
+pnpm dev               # compila tipos/motor/prisma e sobe a API, os jobs e a web
 ```
 
 Com o `pnpm dev` no ar:
@@ -33,6 +33,7 @@ Com o `pnpm dev` no ar:
 - Web: http://localhost:5173
 - API: http://localhost:3000/api/v1 — saúde em `/api/v1/saude`
 - Documentação OpenAPI (só fora de produção): http://localhost:3000/api/v1/docs
+- Jobs: sem porta. Ao subir, roda a rotina diária (registra na auditoria os meses que fecharam no dia anterior e as reaberturas vencidas) e depois todo dia às 00h05.
 
 Mudou algo em `packages/` ou `prisma/`? Reinicie o `pnpm dev` para a API usar o novo build (a web lê o código-fonte dos pacotes e recarrega sozinha).
 
@@ -83,7 +84,7 @@ Para rodar um script num pacote só: `pnpm --filter @metas/motor test`.
 ```
 apps/
   api/        API NestJS
-  jobs/       serviço de jobs (pg-boss)
+  jobs/       serviço de jobs (pg-boss): rotina diária do fechamento às 00h05
   web/        front-end React + Vite
 packages/
   motor/      parser de fórmulas, cálculo e calendário (sem banco, sem HTTP)

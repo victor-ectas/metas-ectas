@@ -49,6 +49,7 @@ catalog:
   luxon: 3.7.2
   nestjs-pino: 5.3.1
   pg: 8.23.1
+  pg-boss: 12.38.0
   pino: 10.4.0
   pino-http: 11.0.0
   prettier: 3.10.0
@@ -83,6 +84,11 @@ ignoredBuiltDependencies:
 # pede react-is na mesma versão do React (ADR-014).
 overrides:
   react-is: 18.3.1
+  # Uma versão só dos tipos do React. O CLI do Prisma (usado pela web no preparo do E2E) traz o
+  # Prisma Studio com os tipos do React 19, e o içamento do pnpm chegava a misturá-los com os do
+  # React 18 nos tipos do MUI (P22, ADR-028).
+  '@types/react': 18.3.31
+  '@types/react-dom': 18.3.7
 
 # Scripts com a mesma sintaxe de shell no Windows e no Linux (ex.: `NODE_ENV=production vite build`).
 shellEmulator: true

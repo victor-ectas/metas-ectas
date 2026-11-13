@@ -4,7 +4,8 @@
 
 .DESCRIPTION
   Roda na máquina de desenvolvimento, na raiz do repositório. Confere o código (pnpm verify),
-  compila tudo, monta a API com as dependências de produção (node_modules plano, sem links),
+  compila tudo, monta a API e o serviço de jobs com as dependências de produção (node_modules
+  plano, sem links),
   junta a web, as migrações e os scripts do servidor, e gera pacotes\metas-<versão>.zip.
   O servidor não precisa de pnpm nem de acesso ao registro npm.
 
@@ -94,6 +95,18 @@ try {
   }
   if (-not (Test-Path (Join-Path $montagem 'api\node_modules\prisma\build\index.js'))) {
     throw 'Prisma CLI ausente do pacote da API: as migrações não rodariam no servidor.'
+  }
+
+  # Serviço de jobs (P22), montado do mesmo jeito.
+  Executar 'Montando o serviço de jobs (dependências de produção)' {
+    pnpm --config.node-linker=hoisted --filter '@metas/jobs' deploy --prod --legacy (Join-Path $montagem 'jobs')
+  }
+  foreach ($sobra in 'src', 'test', 'tsconfig.json', 'tsconfig.build.json', 'vitest.config.mts') {
+    $caminho = Join-Path $montagem "jobs\$sobra"
+    if (Test-Path $caminho) { Remove-Item -Recurse -Force $caminho }
+  }
+  if (-not (Test-Path (Join-Path $montagem 'jobs\dist\main.js'))) {
+    throw 'Build do serviço de jobs ausente do pacote.'
   }
 
   # Migrações (o Prisma CLI vem do pacote da API).

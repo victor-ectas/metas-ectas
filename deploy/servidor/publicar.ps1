@@ -5,8 +5,9 @@
 .DESCRIPTION
   1. Extrai o pacote em <Base>\versoes\<versão>.
   2. Faz backup do banco (backup.ps1).
-  3. Para o serviço da API e aplica as migrações pendentes (prisma migrate deploy).
-  4. Aponta o serviço e o site do IIS para a versão nova e sobe a API.
+  3. Para os serviços da API e dos jobs e aplica as migrações pendentes (prisma migrate deploy).
+  4. Aponta os serviços e o site do IIS para a versão nova e sobe a API; com a API respondendo,
+     sobe os jobs.
   5. Confere /api/v1/saude. Se a API não responder, volta o serviço e o site para a versão
      anterior (as migrações já aplicadas ficam; elas só acrescentam).
   6. Atualiza os scripts em <Base>\scripts e guarda as 5 versões mais recentes.
@@ -25,6 +26,7 @@ param(
   [string]$Nssm = 'C:\Program Files\nssm\nssm.exe',
   [string]$Site = 'metas',
   [string]$Servico = 'metas-api',
+  [string]$ServicoJobs = 'metas-jobs',
   [int]$PortaApi = 3000,
   [int]$VersoesGuardadas = 5,
   [switch]$PularBackup
@@ -42,6 +44,9 @@ foreach ($arquivo in $Pacote, $NodeExe, $Nssm) {
   if (-not (Test-Path -LiteralPath $arquivo)) { throw "Não encontrado: $arquivo" }
 }
 Import-Module WebAdministration
+if (-not (Get-Service -Name $ServicoJobs -ErrorAction SilentlyContinue)) {
+  throw "Serviço $ServicoJobs não existe: rode instalar-servico.ps1 de novo (P22)."
+}
 
 $tar = Join-Path $env:SystemRoot 'System32\tar.exe'
 $versoes = Join-Path $Base 'versoes'
@@ -65,6 +70,13 @@ function Apontar-Para([string]$versao) {
   & $Nssm set $Servico AppDirectory (Join-Path $pasta 'api') | Out-Null
   & $Nssm set $Servico AppParameters ('--env-file="{0}" "{1}"' -f (Join-Path $config 'api.env'), (Join-Path $pasta 'api\dist\main.js')) | Out-Null
   Set-ItemProperty "IIS:\Sites\$Site" -Name physicalPath -Value (Join-Path $pasta 'web')
+  & $Nssm set $ServicoJobs AppDirectory (Join-Path $pasta 'jobs') | Out-Null
+  & $Nssm set $ServicoJobs AppParameters ('--env-file="{0}" "{1}"' -f (Join-Path $config 'api.env'), (Join-Path $pasta 'jobs\dist\main.js')) | Out-Null
+}
+
+# Versões publicadas antes do P22 não têm o serviço de jobs.
+function Subir-Jobs([string]$versao) {
+  if (Test-Path (Join-Path $versoes "$versao\jobs\dist\main.js")) { & $Nssm start $ServicoJobs | Out-Null }
 }
 
 function Saude-Ok {
@@ -98,7 +110,8 @@ if (-not $PularBackup) {
 }
 
 # --- 3. Migrações -------------------------------------------------------------------------------
-Passo "Parando o serviço $Servico"
+Passo "Parando os serviços $Servico e $ServicoJobs"
+& $Nssm stop $ServicoJobs | Out-Null
 & $Nssm stop $Servico | Out-Null
 
 $migracao = Ler-Env (Join-Path $config 'migracao.env')
@@ -112,7 +125,7 @@ try {
   Remove-Item env:DATABASE_URL_MIGRACAO -ErrorAction SilentlyContinue
 }
 if (-not $okMigracao) {
-  if ($anterior) { & $Nssm start $Servico | Out-Null }
+  if ($anterior) { & $Nssm start $Servico | Out-Null; Subir-Jobs $anterior }
   throw 'Migração falhou: a versão anterior continua no ar. Veja a mensagem acima.'
 }
 
@@ -132,10 +145,13 @@ if (-not (Saude-Ok)) {
     & $Nssm stop $Servico | Out-Null
     Apontar-Para $anterior
     & $Nssm start $Servico | Out-Null
+    Subir-Jobs $anterior
     throw "Publicação desfeita: serviço e site voltaram para $anterior (as migrações aplicadas ficam)."
   }
   throw 'Primeira publicação sem resposta da API: confira config\api.env e os logs.'
 }
+Passo "Subindo o serviço $ServicoJobs"
+Subir-Jobs $versao
 Set-Content -Path $arquivoAtual -Value $versao -Encoding ASCII
 
 # --- 6. Scripts e limpeza -----------------------------------------------------------------------

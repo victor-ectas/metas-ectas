@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  Instalação única no servidor: pastas, permissões, proxy do ARR, site do IIS e serviço da API
+  Instalação única no servidor: pastas, permissões, proxy do ARR, site do IIS e serviços da API e dos jobs
   (P16, docs/deploy-windows.md, passo 5).
 
 .DESCRIPTION
@@ -9,9 +9,9 @@
   - Liga o proxy do ARR no servidor (necessário para a regra /api do web.config).
   - Cria o pool "metas" (sem .NET) e o site "metas" com HTTPS no <Endereco> (certificado pela
     impressão digital) e HTTP só para redirecionar.
-  - Cria o serviço "metas-api" no NSSM com a conta LOCAL SERVICE (sem privilégios), início
-    automático atrasado, reinício em caso de falha e logs com rotação. O serviço só sobe na
-    primeira publicação (publicar.ps1).
+  - Cria os serviços "metas-api" e "metas-jobs" (P22) no NSSM com a conta LOCAL SERVICE (sem
+    privilégios), início automático atrasado, reinício em caso de falha e logs com rotação. Os
+    serviços só sobem na primeira publicação (publicar.ps1). Os dois leem o mesmo api.env.
 
   Pode ser rodado de novo: o que já existe é ajustado, não duplicado.
 
@@ -27,7 +27,8 @@ param(
   [string]$NodeExe = 'C:\Program Files\nodejs\node.exe',
   [string]$Nssm = 'C:\Program Files\nssm\nssm.exe',
   [string]$Site = 'metas',
-  [string]$Servico = 'metas-api'
+  [string]$Servico = 'metas-api',
+  [string]$ServicoJobs = 'metas-jobs'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -105,32 +106,42 @@ if ($Certificado) {
   Write-Warning 'Sem certificado: o site fica só em HTTP, e o login Microsoft não funciona assim. Rode de novo com -Certificado.'
 }
 
-# --- Serviço da API (NSSM) ------------------------------------------------------------------------
-Passo "Serviço $Servico"
-$existe = Get-Service -Name $Servico -ErrorAction SilentlyContinue
-if (-not $existe) { & $Nssm install $Servico $NodeExe | Out-Null }
+# --- Serviços da API e dos jobs (NSSM) ------------------------------------------------------------
 $logs = Join-Path $Base 'logs'
-$config = @(
-  @('Application', $NodeExe),
-  @('DisplayName', 'Metas - API'),
-  @('Description', 'API do Sistema de Gestão de Metas (Node). Publicado por D:\metas\scripts\publicar.ps1.'),
-  @('Start', 'SERVICE_DELAYED_AUTO_START'),
-  @('AppStdout', (Join-Path $logs 'api.log')),
-  @('AppStderr', (Join-Path $logs 'api-erros.log')),
-  @('AppRotateFiles', '1'),
-  @('AppRotateOnline', '1'),
-  @('AppRotateBytes', '10485760'),
-  @('AppExit', 'Default', 'Restart'),
-  @('AppRestartDelay', '5000'),
-  @('AppStopMethodConsole', '15000'),
-  @('AppEnvironmentExtra', 'TZ=America/Sao_Paulo')
-)
-foreach ($item in $config) {
-  & $Nssm set $Servico @item | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "nssm set $($item -join ' ') falhou" }
+
+function Configurar-Servico([string]$nome, [string]$titulo, [string]$descricao, [string]$log, [string]$paradaMs) {
+  Passo "Serviço $nome"
+  $existe = Get-Service -Name $nome -ErrorAction SilentlyContinue
+  if (-not $existe) { & $Nssm install $nome $NodeExe | Out-Null }
+  $config = @(
+    @('Application', $NodeExe),
+    @('DisplayName', $titulo),
+    @('Description', $descricao),
+    @('Start', 'SERVICE_DELAYED_AUTO_START'),
+    @('AppStdout', (Join-Path $logs "$log.log")),
+    @('AppStderr', (Join-Path $logs "$log-erros.log")),
+    @('AppRotateFiles', '1'),
+    @('AppRotateOnline', '1'),
+    @('AppRotateBytes', '10485760'),
+    @('AppExit', 'Default', 'Restart'),
+    @('AppRestartDelay', '5000'),
+    # Ctrl+C (SIGINT) e espera antes de encerrar à força.
+    @('AppStopMethodConsole', $paradaMs),
+    @('AppEnvironmentExtra', 'TZ=America/Sao_Paulo')
+  )
+  foreach ($item in $config) {
+    & $Nssm set $nome @item | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "nssm set $nome $($item -join ' ') falhou" }
+  }
+  & $Nssm set $nome ObjectName 'NT AUTHORITY\LocalService' '' | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Não foi possível definir a conta LOCAL SERVICE no serviço $nome." }
 }
-& $Nssm set $Servico ObjectName 'NT AUTHORITY\LocalService' '' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Não foi possível definir a conta LOCAL SERVICE no serviço.' }
+
+Configurar-Servico $Servico 'Metas - API' `
+  'API do Sistema de Gestão de Metas (Node). Publicado por D:\metas\scripts\publicar.ps1.' 'api' '15000'
+# A rotina diária pode estar no meio de um dia: 35 s para terminar (o serviço espera até 30 s).
+Configurar-Servico $ServicoJobs 'Metas - Jobs' `
+  'Rotina diária do fechamento às 00h05 (pg-boss). Publicado por D:\metas\scripts\publicar.ps1.' 'jobs' '35000'
 
 Write-Host ''
 Write-Host 'Instalação concluída.' -ForegroundColor Green

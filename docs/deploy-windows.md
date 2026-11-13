@@ -14,22 +14,24 @@ IIS, site "metas" ── arquivos estáticos da web (D:\metas\versoes\<versão>\
 Serviço "metas-api" (NSSM, conta LOCAL SERVICE) ── node 127.0.0.1:3000
         │
         ▼
-PostgreSQL 17 (localhost:5432, banco "metas")
+PostgreSQL 17 (localhost:5432, banco "metas") ◄── Serviço "metas-jobs" (NSSM, LOCAL SERVICE)
+                                                  rotina diária às 00h05
 ```
 
 - A API só escuta em `127.0.0.1`: ninguém na rede fala com ela sem passar pelo IIS.
 - Cada publicação vai para uma pasta própria em `D:\metas\versoes`. Voltar uma versão é apontar de novo para a pasta anterior.
-- O serviço de jobs (`metas-jobs`) entra no P22; até lá não há nada para instalar.
+- O serviço de jobs (`metas-jobs`, P22) não recebe requisições: às 00h05 registra na auditoria os meses que fecharam no dia anterior (com as pendências de cada gestor) e as reaberturas que venceram. A trava dos meses não depende dele: a API calcula o status na hora. Se ele ficar parado, recupera os dias perdidos quando voltar (até 62 dias). A fila dele fica no schema `pgboss` do mesmo banco, criado pelas migrações.
 
-| Pasta                             | Conteúdo                                                        | Quem lê                                                      |
-| --------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
-| `D:\metas\versoes\<versão>\api`   | API compilada com as dependências                               | serviço                                                      |
-| `D:\metas\versoes\<versão>\web`   | site estático e `web.config`                                    | IIS                                                          |
-| `D:\metas\versoes\<versão>\banco` | migrações                                                       | `publicar.ps1`                                               |
-| `D:\metas\config`                 | `api.env`, `migracao.env`, `pgpass.conf` (segredos)             | só Administradores e SYSTEM; o serviço lê apenas o `api.env` |
-| `D:\metas\logs`                   | `api.log`, `api-erros.log` (rotação a cada 10 MB), `backup.log` | Administradores                                              |
-| `D:\metas\scripts`                | scripts da última versão publicada                              | Administradores                                              |
-| `D:\metas-dados\backup`           | backups diários (30 dias)                                       | só Administradores e SYSTEM                                  |
+| Pasta                             | Conteúdo                                                                     | Quem lê                                                      |
+| --------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `D:\metas\versoes\<versão>\api`   | API compilada com as dependências                                            | serviço                                                      |
+| `D:\metas\versoes\<versão>\jobs`  | serviço de jobs compilado com as dependências                                | serviço                                                      |
+| `D:\metas\versoes\<versão>\web`   | site estático e `web.config`                                                 | IIS                                                          |
+| `D:\metas\versoes\<versão>\banco` | migrações                                                                    | `publicar.ps1`                                               |
+| `D:\metas\config`                 | `api.env`, `migracao.env`, `pgpass.conf` (segredos)                          | só Administradores e SYSTEM; os serviços leem só o `api.env` |
+| `D:\metas\logs`                   | `api.log`, `jobs.log` e os `-erros.log` (rotação a cada 10 MB), `backup.log` | Administradores                                              |
+| `D:\metas\scripts`                | scripts da última versão publicada                                           | Administradores                                              |
+| `D:\metas-dados\backup`           | backups diários (30 dias)                                                    | só Administradores e SYSTEM                                  |
 
 Se o servidor não tiver o disco `D:`, use outro caminho curto: todos os scripts aceitam `-Base` e `-PastaBackup`/`-Destino`. Caminhos longos podem estourar o limite de 260 caracteres do Windows dentro de `node_modules`.
 
@@ -160,7 +162,9 @@ Ele:
 - cria as pastas da tabela acima com as permissões (por SID, funciona em Windows em português ou inglês);
 - liga o proxy do ARR (com 2 minutos de limite, para a importação de Excel do P24) e faz o ARR mandar o IP do cliente em `X-Forwarded-For` **sem a porta**, para o limite de taxa e a auditoria da API enxergarem o IP real;
 - cria o pool `metas` (sem .NET) e o site `metas` com HTTPS no endereço e o certificado, e HTTP só para redirecionar;
-- cria o serviço `metas-api` no NSSM: conta **LOCAL SERVICE**, início automático atrasado, reinício em 5 s se cair, logs com rotação, `TZ=America/Sao_Paulo`. O serviço só sobe na primeira publicação.
+- cria os serviços `metas-api` e `metas-jobs` no NSSM: conta **LOCAL SERVICE**, início automático atrasado, reinício em 5 s se cair, logs com rotação, `TZ=America/Sao_Paulo`. Os serviços só sobem na primeira publicação. O `metas-jobs` lê o mesmo `api.env` da API (usa só `NODE_ENV`, `DATABASE_URL` e `LOG_LEVEL`) e tem 35 s para terminar a rotina em andamento quando é parado.
+
+Servidor instalado antes do P22? Rode o `instalar-servico.ps1` de novo antes de publicar: ele cria o `metas-jobs` e só ajusta o que já existe. O `publicar.ps1` recusa continuar sem o serviço.
 
 Sem `-Certificado`, o site fica só em HTTP e o script avisa. Rode de novo com o certificado quando ele chegar.
 
@@ -212,9 +216,9 @@ O que acontece:
 
 1. extrai o pacote em `D:\metas\versoes\<versão>`;
 2. faz um backup do banco (pule com `-PularBackup` só na primeiríssima publicação, com o banco vazio, se quiser);
-3. para o serviço e aplica as migrações pendentes (`prisma migrate deploy`, que só acrescenta; nunca apaga);
-4. aponta o serviço e o site para a versão nova e sobe a API;
-5. confere `GET /api/v1/saude` por até 60 s. Se a API não responder, **volta sozinho** para a versão anterior;
+3. para os serviços da API e dos jobs e aplica as migrações pendentes (`prisma migrate deploy`, que só acrescenta; nunca apaga);
+4. aponta os serviços e o site para a versão nova e sobe a API;
+5. confere `GET /api/v1/saude` por até 60 s. Se a API não responder, **volta sozinho** para a versão anterior. Com a API no ar, sobe o serviço de jobs;
 6. atualiza `D:\metas\scripts` e guarda as 5 versões mais recentes.
 
 Confira no navegador do próprio servidor: `https://metas.ectas.local/api/v1/saude` deve mostrar `"status":"ok"`.
@@ -255,7 +259,8 @@ powershell -ExecutionPolicy Bypass -File D:\metas\scripts\testar-restauracao.ps1
 - [ ] Pelo celular, na rede interna (Wi-Fi corporativo), o endereço abre com o cadeado, sem aviso de certificado.
 - [ ] O login Microsoft funciona e o Administrador cai no Início com o perfil Administrador.
 - [ ] Em **Cadastros**, o Administrador cria o ciclo 2027 e começa a cadastrar setores, responsáveis, variáveis e metas.
-- [ ] O serviço `metas-api` está _Em execução_ e com início automático; reiniciar o servidor traz tudo de volta sozinho.
+- [ ] Os serviços `metas-api` e `metas-jobs` estão _Em execução_ e com início automático; reiniciar o servidor traz tudo de volta sozinho.
+- [ ] `D:\metas\logs\jobs.log` mostra "Serviço de jobs no ar" e "Rotina diária concluída" (a primeira execução registra o dia anterior).
 - [ ] A tarefa "Metas - backup diario" existe, e o teste de restauração passou.
 - [ ] De outra máquina da rede, `http://<servidor>:3000` **não** responde (a API só escuta localmente).
 
@@ -274,12 +279,14 @@ O banco não volta junto. As migrações do sistema só acrescentam, então a ve
 
 ## 11. Problemas comuns
 
-| Sintoma                                           | Onde olhar                          | Causa provável                                                                                     |
-| ------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `publicar.ps1` diz que a API não respondeu        | `D:\metas\logs\api-erros.log`       | Variável faltando ou errada no `api.env` (a API lista quais)                                       |
-| Erro 502.3 no navegador                           | Serviço `metas-api`                 | Serviço parado; ARR não alcança a porta 3000                                                       |
-| Erro 404 em `/api/...`                            | Gerenciador do IIS > servidor > ARR | Proxy do ARR desligado (rode `instalar-servico.ps1` de novo)                                       |
-| Login volta com erro de redirecionamento          | Registro do aplicativo              | URI de redirecionamento SPA diferente do endereço (falta a barra no fim, `http` em vez de `https`) |
-| `NAO_AUTENTICADO` logo depois do login            | `api.env`                           | `ENTRA_TENANT_ID` ou `ENTRA_API_AUDIENCE` não batem com o registro do aplicativo                   |
-| Erro de CORS no console do navegador              | `api.env`                           | `WEB_ORIGIN` diferente do endereço digitado                                                        |
-| Backup falha com "password authentication failed" | `D:\metas\config\pgpass.conf`       | Senha ou porta erradas no arquivo                                                                  |
+| Sintoma                                                    | Onde olhar                          | Causa provável                                                                                                                             |
+| ---------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `publicar.ps1` diz que a API não respondeu                 | `D:\metas\logs\api-erros.log`       | Variável faltando ou errada no `api.env` (a API lista quais)                                                                               |
+| Erro 502.3 no navegador                                    | Serviço `metas-api`                 | Serviço parado; ARR não alcança a porta 3000                                                                                               |
+| Erro 404 em `/api/...`                                     | Gerenciador do IIS > servidor > ARR | Proxy do ARR desligado (rode `instalar-servico.ps1` de novo)                                                                               |
+| `jobs-erros.log` com "permission denied for schema pgboss" | Migrações                           | Migração `schema_pgboss` não aplicada, ou o usuário da aplicação não se chama `metas_app` (conceda `USAGE, CREATE ON SCHEMA pgboss` a ele) |
+| `publicar.ps1` diz que o serviço `metas-jobs` não existe   | Serviços do Windows                 | Servidor instalado antes do P22: rode `instalar-servico.ps1` de novo                                                                       |
+| Login volta com erro de redirecionamento                   | Registro do aplicativo              | URI de redirecionamento SPA diferente do endereço (falta a barra no fim, `http` em vez de `https`)                                         |
+| `NAO_AUTENTICADO` logo depois do login                     | `api.env`                           | `ENTRA_TENANT_ID` ou `ENTRA_API_AUDIENCE` não batem com o registro do aplicativo                                                           |
+| Erro de CORS no console do navegador                       | `api.env`                           | `WEB_ORIGIN` diferente do endereço digitado                                                                                                |
+| Backup falha com "password authentication failed"          | `D:\metas\config\pgpass.conf`       | Senha ou porta erradas no arquivo                                                                                                          |
