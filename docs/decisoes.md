@@ -608,3 +608,48 @@ Registro curto (ADR) de toda decisão que não está no `CLAUDE.md` nem na espec
 - O P18 chama `recalcularPorVariaveis` ao gravar os lançamentos.
 - O P20 lê `GET /resultados/*`.
 - Metas salvas antes do P17 não têm resultado até serem salvas de novo ou até `POST /ciclos/{id}/recalcular`.
+
+## ADR-024 — API de lançamentos
+
+- **Data:** 13/11/2026
+- **Status:** Aceita
+- **Passo:** P18
+
+**Contexto.** O P18 pede `GET /lancamentos?ciclo&mes` e `PUT /lancamentos` em lote, com permissão (`podeLancar`), trava do mês (motor + reaberturas), tipo e faixa do valor, histórico, conflito de versão e recálculo. A especificação não define a "faixa do valor".
+
+**Decisão do desenvolvedor (13/11/2026).**
+
+- Em todos os tipos, o lançamento aceita qualquer número, positivo ou negativo; o percentual pode passar de 100%. Os casos de teste já usam percentual negativo (CT-09) e dias negativos (CT-10).
+- SIM/NÃO só aceita 0 ou 1.
+- O valor não pode ter mais casas decimais do que as cadastradas na variável. No percentual, as casas contam no valor digitado de 0 a 100: com 2 casas, 12,34% vale e 12,345% é recusado.
+
+**Decisões técnicas.**
+
+- **Quem lança**:
+  - **Gestor**: só no ciclo **ativo** (decisão do P15: os lançamentos começam depois da ativação), nas variáveis pelas quais responde (RN-07, `responsavelPeloLancamento` + `PoliticasService.podeLancar`) e nos meses abertos ou reabertos para ele.
+  - **Administrador**: carga histórica (RN-38), em qualquer mês e em ciclo rascunho ou ativo, ignorando a trava; nunca em ciclo encerrado (RN-39). A origem é `CARGA_HISTORICA`; a do Gestor, `DIGITACAO`.
+  - Diretoria e Leitor não lançam (403).
+- **Status por variável**: a reabertura pode valer para todos, para um setor ou para um gestor (RN-36), então o mesmo mês pode estar fechado para uma variável e reaberto para outra. O GET devolve o status do mês para o usuário e o de cada variável.
+- **GET** devolve:
+  - as variáveis do usuário (para o Administrador, todas as do ciclo);
+  - as de outros setores usadas nas mesmas fórmulas, como somente leitura (`editavel: false`);
+  - o valor e a versão do mês, e os valores do ano (para a prévia do acumulado no P19);
+  - a definição das metas ativas que usam essas variáveis, com as submetas, para o motor no navegador;
+  - o prazo do mês (`fechaEm`).
+- **PUT, tudo ou nada**:
+  1. Valida o lote inteiro antes de gravar. Os problemas vêm em `detalhes.itens`, e o código do erro é o do mais grave: `SEM_PERMISSAO_VARIAVEL` (403), depois `MES_FUTURO`, `MES_FECHADO` (422, com a data do fechamento) e `VALIDACAO` (400).
+  2. Na transação, confere a versão de cada item. No `CONFLITO_VERSAO` (409), `detalhes.conflitos` traz o valor e a versão atuais, para a tela mostrar. A gravação usa `updateMany where versao`, e um `create` simultâneo (violação de unicidade) também vira `CONFLITO_VERSAO`.
+  3. Grava o valor e o histórico (`lancamento_historico`, somente inclusão), ligado à reabertura vigente quando o mês estava reaberto para a variável.
+  4. Item igual ao gravado não gera histórico nem nova versão. Vazio (`null`) grava `null` e fica no histórico (RN-08, RN-40).
+  5. Recalcula as metas que usam as variáveis que mudaram (`recalcularPorVariaveis`, P17).
+- **No máximo 500 itens por lote**; o mesmo par variável e mês não pode se repetir no lote.
+- **A auditoria dos lançamentos é o `lancamento_historico`** (valor anterior e novo, origem, usuário, data, reabertura), não a tabela `auditoria`.
+- **Relógio injetável** (`Relogio`, em `comum/`): os testes fixam a data para simular mês aberto, fechado, reaberto e futuro. O `criarApp` dos testes aceita provedores trocados.
+- **Testes**:
+  - a limpeza dos dados de teste apaga também o histórico de lançamentos, desligando o trigger de somente inclusão só dentro da transação de limpeza, como já fazia com a auditoria;
+  - na web, as esperas da Testing Library (`findBy*`) passaram de 1 s para 5 s: a primeira montagem do sistema inteiro passava de 1 s com os 12 arquivos em paralelo, e testes que não mudaram falhavam de forma alternada.
+
+**Consequências.**
+
+- A tela de lançamento (P19) usa o GET para montar a tela e a prévia, e o PUT para salvar, tratando `CONFLITO_VERSAO` com o valor atual.
+- A importação (P24) reaproveita as mesmas regras de permissão, trava e valor.

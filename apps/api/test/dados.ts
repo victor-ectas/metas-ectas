@@ -135,6 +135,18 @@ export async function limparDados(): Promise<void> {
         DELETE FROM auditoria
         WHERE usuario_id IN (SELECT id FROM usuario WHERE email LIKE ${emails})`;
       await tx.$executeRaw`ALTER TABLE auditoria ENABLE TRIGGER auditoria_somente_inclusao`;
+      // Histórico dos lançamentos de teste (também somente inclusão), antes dos lançamentos.
+      await tx.$executeRaw`
+        ALTER TABLE lancamento_historico DISABLE TRIGGER lancamento_historico_somente_inclusao`;
+      await tx.$executeRaw`
+        DELETE FROM lancamento_historico
+        WHERE usuario_id IN (SELECT id FROM usuario WHERE email LIKE ${emails})
+           OR lancamento_id IN (
+             SELECT l.id FROM lancamento l JOIN variavel v ON v.id = l.variavel_id
+             WHERE v.ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))
+                OR v.setor_id IN (SELECT id FROM setor WHERE codigo LIKE ${setores}))`;
+      await tx.$executeRaw`
+        ALTER TABLE lancamento_historico ENABLE TRIGGER lancamento_historico_somente_inclusao`;
       await tx.$executeRaw`
         DELETE FROM setor_responsavel
         WHERE ciclo_id IN (SELECT id FROM ciclo WHERE ano = ANY(${ANOS}))

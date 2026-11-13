@@ -1,7 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach } from 'vitest';
+
+// `findBy*`/`waitFor` esperam até 5 s (padrão: 1 s). A primeira montagem do sistema inteiro
+// (rotas, MUI, consultas) passa de 1 s quando os 12 arquivos rodam em paralelo no Windows.
+configure({ asyncUtilTimeout: 5_000 });
 
 /**
  * O jsdom não calcula layout nem tem `matchMedia`. Este substituto responde às consultas de

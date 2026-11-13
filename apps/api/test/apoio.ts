@@ -93,14 +93,19 @@ export function configTeste(alteracoes: Partial<Config> = {}): Config {
 export async function criarApp(
   config: Config = configTeste(),
   controllers: Type[] = [],
+  sobrescritas: readonly { provide: unknown; useValue: unknown }[] = [],
 ): Promise<NestExpressApplication> {
-  const modulo = await Test.createTestingModule({
+  let construtor = Test.createTestingModule({
     imports: [AppModule.registrar(config)],
     controllers,
   })
     .overrideProvider(CHAVES_ENTRA)
-    .useValue(JWKS_TESTE)
-    .compile();
+    .useValue(JWKS_TESTE);
+  // Ex.: o `Relogio` fixo dos testes de lançamento.
+  for (const { provide, useValue } of sobrescritas) {
+    construtor = construtor.overrideProvider(provide).useValue(useValue);
+  }
+  const modulo = await construtor.compile();
   const app = modulo.createNestApplication<NestExpressApplication>({ bufferLogs: true });
   configurarApp(app, config);
   // Escuta uma vez, numa porta livre: ver `cliente`.
