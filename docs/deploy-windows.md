@@ -63,12 +63,12 @@ Depois instale, nesta ordem, os módulos da Microsoft (baixe do site oficial da 
 
 O `instalar-servico.ps1` (passo 4) liga o proxy do ARR e recusa continuar se faltar algum dos dois.
 
-### 1.2 Node.js 24.15.0
+### 1.2 Node.js 26.13.1
 
-Baixe o instalador **node-v24.15.0-x64.msi** em <https://nodejs.org/dist/v24.15.0/> e confira o hash SHA-256 com o arquivo `SHASUMS256.txt` da mesma pasta:
+Baixe o instalador **node-v26.13.1-x64.msi** em <https://nodejs.org/dist/v26.13.1/> e confira o hash SHA-256 com o arquivo `SHASUMS256.txt` da mesma pasta:
 
 ```powershell
-Get-FileHash .\node-v24.15.0-x64.msi -Algorithm SHA256
+Get-FileHash .\node-v26.13.1-x64.msi -Algorithm SHA256
 ```
 
 Instale com as opções padrão (vai para `C:\Program Files\nodejs`). Não precisa de pnpm nem de npm no servidor.
@@ -158,7 +158,7 @@ powershell -ExecutionPolicy Bypass -File .\instalar-servico.ps1 -Endereco metas.
 Ele:
 
 - cria as pastas da tabela acima com as permissões (por SID, funciona em Windows em português ou inglês);
-- liga o proxy do ARR (com 2 minutos de limite, para a importação de Excel do P24);
+- liga o proxy do ARR (com 2 minutos de limite, para a importação de Excel do P24) e faz o ARR mandar o IP do cliente em `X-Forwarded-For` **sem a porta**, para o limite de taxa e a auditoria da API enxergarem o IP real;
 - cria o pool `metas` (sem .NET) e o site `metas` com HTTPS no endereço e o certificado, e HTTP só para redirecionar;
 - cria o serviço `metas-api` no NSSM: conta **LOCAL SERVICE**, início automático atrasado, reinício em 5 s se cair, logs com rotação, `TZ=America/Sao_Paulo`. O serviço só sobe na primeira publicação.
 

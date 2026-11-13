@@ -8,17 +8,11 @@ Aplicação web interna que substitui as planilhas de metas dos gestores: cadast
 
 ## Pré-requisitos
 
-- **Node.js 24 LTS** (versão exata em [.nvmrc](.nvmrc)).
-- **pnpm** na versão de `packageManager` do [package.json](package.json). Instale com:
+- **Node.js 26 LTS** (versão exata em [.nvmrc](.nvmrc)).
+- **pnpm** na versão de `packageManager` do [package.json](package.json). O Node 26 não traz mais o corepack; instale pelo npm, na versão exata:
 
   ```sh
-  corepack enable pnpm
-  ```
-
-  Sem permissão de administrador no Windows, instale o atalho numa pasta do usuário que esteja no `PATH`:
-
-  ```sh
-  corepack enable pnpm --install-directory "%APPDATA%\npm"
+  npm install -g pnpm@10.34.9
   ```
 
 - **Docker Desktop**, para o PostgreSQL de desenvolvimento (`postgres:17.11-alpine`, porta 5433), a mesma versão major do servidor de produção (PostgreSQL 17).
@@ -76,8 +70,13 @@ Para mudar o esquema: edite `prisma/schema.prisma` e rode `pnpm db:migrar` (cria
 | `pnpm db:parar`  | Para o contêiner (os dados ficam no volume)                   |
 | `pnpm db:migrar` | Aplica ou cria migrações no banco de desenvolvimento          |
 | `pnpm db:seed`   | Popula o banco de desenvolvimento com dados de exemplo        |
+| `pnpm e2e`       | Testes ponta a ponta (Playwright, Edge): ver abaixo           |
 
 Para rodar um script num pacote só: `pnpm --filter @metas/motor test`.
+
+### Testes ponta a ponta
+
+`pnpm e2e` compila a API, prepara o banco `metas_e2e_teste` (criado na primeira vez; a cada rodada ele recebe as migrações, tem os dados apagados e ganha um cenário fixo), sobe a API na porta 3100 e a web na 5174 em modo DEV, com o relógio fixo em 13/11/2026, e roda o fluxo do gestor no Microsoft Edge, em desktop e em 360 px. Ele não mexe nos bancos `metas` e `metas_teste` e pode rodar com o `pnpm dev` no ar. Precisa do PostgreSQL no ar e leva cerca de 1 minuto. Fica fora do `verify`; rode antes de cada publicação. Relatório de falhas: `apps/web/playwright-report`.
 
 ## Estrutura
 

@@ -141,4 +141,34 @@ describe('carregarConfig', () => {
       ).toBe(false);
     });
   });
+
+  describe('relógio fixo dos testes ponta a ponta', () => {
+    const FIXO = '2026-11-13T12:00:00-03:00';
+
+    it('em desenvolvimento, vira o instante do relógio', () => {
+      expect(carregarConfig({ ...MINIMO, RELOGIO_FIXO: FIXO }).RELOGIO_FIXO).toEqual(
+        new Date('2026-11-13T15:00:00Z'),
+      );
+    });
+
+    it('a API não inicia com RELOGIO_FIXO em produção', () => {
+      expect(problemas({ ...MINIMO, NODE_ENV: 'production', RELOGIO_FIXO: FIXO })).toEqual([
+        'RELOGIO_FIXO: RELOGIO_FIXO só é permitido com NODE_ENV=development (atual: production). A API não inicia assim.',
+      ]);
+    });
+
+    it('nem em teste', () => {
+      expect(problemas({ ...MINIMO, NODE_ENV: 'test', RELOGIO_FIXO: FIXO })).toHaveLength(1);
+    });
+
+    it('exige data e hora com fuso', () => {
+      expect(problemas({ ...MINIMO, RELOGIO_FIXO: '2026-11-13' })).toEqual([
+        'RELOGIO_FIXO: deve ser data e hora ISO com fuso, ex.: 2026-11-13T12:00:00-03:00',
+      ]);
+    });
+
+    it('vazio no .env usa o relógio do sistema', () => {
+      expect(carregarConfig({ ...MINIMO, RELOGIO_FIXO: '' }).RELOGIO_FIXO).toBeUndefined();
+    });
+  });
 });

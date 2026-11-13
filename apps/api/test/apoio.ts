@@ -82,6 +82,7 @@ export function configTeste(alteracoes: Partial<Config> = {}): Config {
     ENTRA_API_AUDIENCE: [AUDIENCIA_URI, AUDIENCIA_GUID],
     AUTH_DEV: false,
     AUTH_DEV_EMAIL: undefined,
+    RELOGIO_FIXO: undefined,
     ...alteracoes,
   };
 }

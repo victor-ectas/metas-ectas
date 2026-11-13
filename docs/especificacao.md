@@ -451,7 +451,7 @@ O navegador fala só com o IIS da rede interna e com o Entra ID para o login. A 
 | Repositório | Monorepo com pnpm workspaces; TypeScript estrito (strict, noUncheckedIndexedAccess); ESLint + Prettier | Um repositório para front, API, jobs e pacotes compartilhados |
 | Front-end | React 18 + TypeScript + Vite; MUI (componentes responsivos); TanStack Query; React Router; React Hook Form + Zod; ECharts | Telas para celular, tablet e desktop; prévia de cálculo no navegador |
 | Autenticação no front | MSAL React (@azure/msal-react), Authorization Code + PKCE | Login Microsoft, token de acesso para a API |
-| API | Node.js 24 LTS + TypeScript + NestJS (módulos, guards, validação) | Regras de negócio, permissões, trava, gravação e recálculo |
+| API | Node.js 26 LTS + TypeScript + NestJS (módulos, guards, validação) | Regras de negócio, permissões, trava, gravação e recálculo |
 | Validação de token | jose com JWKS do tenant (tokens v2 do Entra ID) | Confere assinatura, emissor, audiência e expiração |
 | Acesso a dados | Prisma (migrações versionadas, tipo Decimal) | Esquema da seção 7 |
 | Motor de cálculo | Pacote @metas/motor: parser de fórmulas + cálculo + calendário, TypeScript puro com decimal.js | Mesmo código no servidor (oficial) e no navegador (prévia) |

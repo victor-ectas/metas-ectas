@@ -64,9 +64,29 @@ const ConfigSchema = z.object({
       .transform((email) => email.toLowerCase())
       .optional(),
   ),
+  /**
+   * Instante fixo para o relógio das regras de fechamento (ISO 8601 com fuso, ex.:
+   * 2026-11-13T12:00:00-03:00). Só para os testes ponta a ponta: aceito só em desenvolvimento.
+   */
+  RELOGIO_FIXO: textoOpcional().pipe(
+    z.iso
+      .datetime({
+        offset: true,
+        error: 'deve ser data e hora ISO com fuso, ex.: 2026-11-13T12:00:00-03:00',
+      })
+      .transform((valor) => new Date(valor))
+      .optional(),
+  ),
 });
 
 const ConfigValidadaSchema = ConfigSchema.superRefine((config, ctx) => {
+  if (config.RELOGIO_FIXO !== undefined && config.NODE_ENV !== 'development') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['RELOGIO_FIXO'],
+      message: `RELOGIO_FIXO só é permitido com NODE_ENV=development (atual: ${config.NODE_ENV}). A API não inicia assim.`,
+    });
+  }
   if (config.AUTH_DEV) {
     if (config.NODE_ENV !== 'development') {
       ctx.addIssue({

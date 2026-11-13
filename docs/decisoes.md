@@ -749,3 +749,62 @@ A rota `GET /resultados/gestor/{id}` do P17 exigia o ciclo, e o Gestor não list
 
 - A Visão geral (P26) pode reaproveitar `useResultadosGestor`, `SituacaoMeta` e `exibicao.ts`.
 - O E2E do P21 confere em Minhas metas o resultado de um lançamento feito na tela.
+
+## ADR-027 — Node 26, testes ponta a ponta e revisão de segurança da Entrega 1a
+
+- **Data:** 13/11/2026
+- **Status:** Aceita. Substitui a versão do Node do ADR-001 e a instalação do pnpm pelo corepack.
+- **Passo:** P21
+
+**Contexto.** O P21 pede quatro coisas:
+
+- o E2E com Playwright (login DEV → lançar → ver resultado → mês fechado recusado);
+- o `pnpm audit`;
+- a revisão de segurança da seção 6;
+- o deploy e o roteiro de treinamento.
+
+No meio do passo, às 13:16 de 13/11/2026, o WinGet atualizou o Node da máquina de desenvolvimento do 24.15.0 para o **26.13.1**: o pacote `OpenJS.NodeJS.LTS` passou a apontar para o 26, que virou LTS. O Node 25 em diante não traz mais o corepack, e o `pnpm` parou de funcionar.
+
+**Decisão do desenvolvedor (13/11/2026).** Migrar o projeto para o Node 26 LTS, em vez de voltar ao 24.
+
+**Decisões técnicas.**
+
+- **Node 26.13.1:**
+  - `.nvmrc`, `engines` (`>=26.13.1 <27`), `@types/node` 26.6.6 no catálogo.
+  - README, CLAUDE.md §3, especificação (seção da stack) e `docs/deploy-windows.md` (instalador `node-v26.13.1-x64.msi`).
+  - O pnpm 10.34.9 passa a ser instalado com `npm install -g pnpm@10.34.9`. Na máquina, os atalhos antigos do corepack foram substituídos.
+  - O `pnpm verify` inteiro passou no Node 26 sem mudança de código: 1.023 testes, motor com 100% de cobertura.
+  - O cuidado do ADR-019 continua: os testes da API seguem com `cliente(app)` e keep-alive. O defeito `0xC0000409` não foi testado de novo no 26.
+- **Relógio fixo (`RELOGIO_FIXO`):**
+  - O `Relogio` da API lê um instante ISO com fuso da configuração. Os testes ponta a ponta usam 13/11/2026 12:00 em São Paulo, quando setembro já fechou (21/10) e outubro fecha em 24/11 (CT-18). Assim o E2E não depende do dia em que roda.
+  - A trava é a mesma do `AUTH_DEV`: com `RELOGIO_FIXO` fora de `NODE_ENV=development`, a API não inicia. Há testes de configuração.
+  - No navegador, o mesmo instante vem do `page.clock` do Playwright.
+- **E2E** (`apps/web/e2e`, `@playwright/test` 1.64.1, no **Edge instalado no Windows** (`channel: 'msedge'`), sem baixar Chromium):
+  - **`pnpm e2e`** (raiz): compila tipos, motor, prisma e api; roda `e2e/preparar-banco.ts`; roda o Playwright.
+  - **Banco próprio `metas_e2e_teste`:**
+    - É criado pelo `metas_owner`, que tem `CREATEDB`, com os mesmos privilégios do Docker para o `metas_app`.
+    - A cada rodada ele recebe as migrações, tem os dados apagados com `TRUNCATE` e ganha um cenário fixo. Os triggers de somente inclusão são desligados só nessa transação, e a limpeza recusa qualquer banco com outro nome.
+    - Fica separado do `metas_teste` porque o índice único permite um só ciclo ativo, e os testes da API já usam um.
+  - **Cenário (CT-01):**
+    - a Gestora Paula Fiscal, com a meta `REQ_ATENDIDOS / TOTAL_REQ` (≥ 80%, proporcional, peso 100) no ciclo 2026 ativo;
+    - janeiro 16/20 e fevereiro 14/25 em carga histórica.
+  - **Servidores:**
+    - API compilada na porta 3100, com o `node` do próprio Playwright (`process.execPath`), modo DEV e o relógio fixo;
+    - Vite na 5174.
+    - As portas não colidem com o `pnpm dev`.
+  - **Testes** (em desktop e em 360 px):
+    1. Entrar pelo chip DEV. Ver no Início outubro pendente (2 de 2, 7 dias úteis) e a nota 83,33. Lançar outubro 30/30. Ver a prévia do motor (100,00% no mês, 80,00% no acumulado). Salvar. Ver em Minhas metas "80,00%", "Batida" e 100,00 pontos, e a memória com 60 e 75.
+    2. Setembro com cadeado, "fechou em 21/10/2026", campos desabilitados e sem barra de salvar; o `PUT` direto pela API responde `422 MES_FECHADO`.
+  - Cada teste começa limpando outubro como Administrador (carga histórica) e recalculando o ciclo. Por isso os testes rodam em qualquer ordem e várias vezes sem preparar o banco de novo.
+  - O E2E fica **fora do `pnpm verify`**, porque sobe servidores e leva cerca de 1 minuto. Roda antes de cada publicação.
+- **Revisão de segurança** em `docs/revisao-seguranca.md`, item a item:
+  - Todos os itens da seção 6 estão atendidos ou ainda não se aplicam (uploads).
+  - **Corrigido:** o ARR do IIS manda o IP em `X-Forwarded-For` com a porta, e o limite de taxa por IP deixaria de valer. O `instalar-servico.ps1` agora configura `includePortInXForwardedFor=False`.
+- **Treinamento** em `docs/treinamento.md`: roteiro de 1 hora para quem conduz, com preparação, demonstração no celular, exercício, perguntas frequentes e o prazo real de janeiro/2027. Pelo motor, janeiro/2027 fecha em 19/02/2027, ou 23/02 com o Carnaval cadastrado.
+
+**Consequências.**
+
+- Quem montar a máquina ou o servidor instala o Node 26 e o pnpm pelo npm (README e roteiro de deploy).
+- Vale pedir à TI para não atualizar o Node automaticamente nas máquinas de desenvolvimento e no servidor.
+- **O P21 fica parcial:** a publicação e o aceite ("gestores lançam janeiro/2027 em produção") dependem da instalação do P16 e de janeiro.
+- O E2E da importação (P28) segue o mesmo modelo: um cenário no `preparar-banco.ts` e um teste novo em `e2e/`.

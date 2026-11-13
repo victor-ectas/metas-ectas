@@ -78,6 +78,10 @@ if (-not $proxy) { throw 'ARR (Application Request Routing) não está instalado
 Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value 'True'
 # Importação de Excel (P24) pode levar alguns segundos: 2 minutos de limite.
 Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'timeout' -Value '00:02:00'
+# IP real do cliente para a API (limite de taxa por IP e auditoria): X-Forwarded-For só com o IP.
+# Por padrão o ARR inclui a porta ("10.0.0.5:51234"), e cada conexão pareceria um cliente diferente.
+Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'xForwardedForHeaderName' -Value 'X-Forwarded-For'
+Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'includePortInXForwardedFor' -Value 'False'
 
 # --- IIS: pool e site -----------------------------------------------------------------------------
 Passo "Site $Site em https://$Endereco"
