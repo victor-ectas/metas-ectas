@@ -5,6 +5,8 @@ import {
   LancamentosEntradaSchema,
   type LancamentosMes,
   type LancamentosSalvos,
+  type Pendencias,
+  Perfil,
 } from '@metas/tipos';
 import type { z } from 'zod';
 
@@ -37,6 +39,15 @@ export class LancamentosController {
     @UsuarioLogado() usuario: UsuarioAtual,
   ): Promise<LancamentosMes> {
     return this.lancamentos.consultar(usuario, filtro.ciclo, filtro.mes);
+  }
+
+  @Get('pendencias')
+  @Perfis(Perfil.GESTOR)
+  @ApiOperation({
+    summary: 'Meses terminados ainda abertos para o Gestor, com prazo e variáveis vazias (Início)',
+  })
+  pendencias(@UsuarioLogado() usuario: UsuarioAtual): Promise<Pendencias> {
+    return this.lancamentos.pendencias(usuario);
   }
 
   @Put()

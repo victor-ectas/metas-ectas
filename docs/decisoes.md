@@ -694,3 +694,58 @@ A API do P18 devolvia um mês por vez e exigia o ciclo, mas o Gestor não lista 
 - Minhas metas (P20) lê os resultados gravados.
 - O E2E do P21 percorre esta tela.
 - O Administrador lança pela importação (P24): a tela não aparece no menu dele, mas a API aceita a carga histórica.
+
+## ADR-026 — Minhas metas e Início do Gestor
+
+- **Data:** 13/11/2026
+- **Status:** Aceita
+- **Passo:** P20
+
+**Contexto.** O P20 pede, para o Gestor:
+
+- a nota por bloco e o total;
+- a lista de metas com acumulado, atendimento, pontos e situação (texto e cor);
+- o detalhe com o resultado mês a mês e a memória de cálculo;
+- no Início, a nota parcial e as pendências do mês.
+
+A rota `GET /resultados/gestor/{id}` do P17 exigia o ciclo, e o Gestor não lista ciclos.
+
+**Decisões do desenvolvedor (13/11/2026).**
+
+- Minhas metas abre no ciclo ativo. Um seletor de ano mostra também os ciclos encerrados em que o gestor teve metas, com a nota congelada. O ciclo em rascunho não aparece para o Gestor nem para o Leitor.
+- As pendências do Início contam só os meses já terminados que ainda aceitam lançamento (abertos ou reabertos). O mês corrente fica de fora, porque ainda está em andamento.
+- O Início do Administrador, da Diretoria e do Leitor fica como está. As notas de todos os gestores vão para a Visão geral (P26).
+
+**Decisões técnicas.**
+
+- **`GET /resultados/gestor/{id}`:**
+  - `?ciclo=` fica opcional. Sem ele, vale o ciclo ativo; sem ativo, o encerrado mais recente com metas do gestor.
+  - A resposta ganha `ciclo` (`null` quando o gestor ainda não tem metas em nenhum ciclo visível, sem erro) e `ciclos`, com os ciclos do seletor.
+  - Cada meta ganha `operador` e `tolerancia`, para mostrar o objetivo como "≥ 80,00%".
+  - A regra do rascunho está no `PoliticasService` (`veResultadosEmRascunho`: Administrador e Diretoria). Ela também vale para `GET /resultados/meta/{id}`.
+- **Memória de cálculo tipada** (`MemoriaCalculoSchema` em `@metas/tipos`, igual ao `MemoriaCalculo` do motor):
+  - A API já devolvia a memória como um JSON sem tipo; agora a web valida a forma dela.
+  - O resultado da meta ganha `variaveis` (id, código, nome e tipo), para mostrar os valores na unidade da variável, e `ciclo` (ano e situação).
+- **`GET /lancamentos/pendencias`** (só Gestor):
+  - Reaproveita o cálculo dos meses do P19, extraído para `meses()` no serviço.
+  - Devolve os meses terminados que estão abertos ou reabertos para ele, com o prazo, os dias úteis restantes, as variáveis vazias e o total.
+  - Sem ciclo ativo, devolve `ciclo: null` e nenhum mês.
+- **Web:**
+  - Camada pura em `paginas/minhas-metas/exibicao.ts`, testada à parte: objetivo com operador, peso, pontos, resumo da nota (largura da barra calculada com `Decimal`), origem do objetivo, período, explicação dos pontos e avisos.
+  - `SituacaoMeta` passa a ser um componente compartilhado: texto, ponto e cor, com contraste de pelo menos 4,5:1. A tela de lançamentos agora usa esse componente.
+  - **Minhas metas:**
+    - cartão da nota, com uma barra por bloco;
+    - metas por bloco, como linhas em grade no desktop e cartões no celular.
+  - **Detalhe:**
+    - resumo;
+    - pontos de cada gestor numa corporativa (para quem vê todos);
+    - mês a mês, com o histórico fora do período. No celular, o mês aparece abreviado e a coluna Objetivo some, porque já está no resumo;
+    - submetas;
+    - "Como foi calculado": período, apuração, fórmula, a tabela de valores (acumulação, acumulado e meses, com rolagem só dentro da tabela), a composição do atendimento da mãe, o objetivo usado com a origem, o atendimento, a explicação dos pontos e os avisos.
+  - **Início do Gestor:** cartões de Pendências (com "Lançar outubro" levando a `/lancamentos?mes=10`) e de Nota parcial.
+- **Testes da web:** o fluxo completo do editor do P14 ganhou limite próprio de 40 s, porque com 16 arquivos em paralelo passava de 20 s. Sozinho, leva cerca de 6,5 s.
+
+**Consequências.**
+
+- A Visão geral (P26) pode reaproveitar `useResultadosGestor`, `SituacaoMeta` e `exibicao.ts`.
+- O E2E do P21 confere em Minhas metas o resultado de um lançamento feito na tela.

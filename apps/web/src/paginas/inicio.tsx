@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import type { Perfil } from '@metas/tipos';
+import { Perfil } from '@metas/tipos';
 import { Link as RouterLink } from 'react-router';
 
 import { useSessao } from '../api/sessao';
@@ -20,6 +20,7 @@ import { CORES } from '../app/tema';
 import simboloBranco from '../assets/ectas-simbolo-branco.png';
 import { OndaBorda } from '../componentes/ondas';
 import { LARGURA_CONTEUDO, MARGEM_PAGINA, Pagina } from '../componentes/pagina';
+import { PainelGestor } from './inicio-gestor';
 
 function primeiroNome(nome: string): string {
   return nome.trim().split(/\s+/)[0] ?? nome;
@@ -79,8 +80,9 @@ function FaixaBoasVindas(props: { readonly nome: string; readonly texto: string 
 }
 
 /**
- * Início (especificação 10.2): quem é o usuário, o que ele vê e atalhos. Nota parcial e
- * pendências do mês entram com os lançamentos e resultados (P20).
+ * Início (especificação 10.2): quem é o usuário, o que ele vê e atalhos. O Gestor vê também a
+ * nota parcial e as pendências dos meses com prazo correndo (P20); os outros perfis acompanham
+ * todos os gestores na Visão geral (P26).
  */
 export function Inicio() {
   const { data: sessao } = useSessao();
@@ -102,6 +104,10 @@ export function Inicio() {
               precisa ativar seu usuário e definir seu perfil. Avise-o informando o e-mail{' '}
               <strong>{usuario.email}</strong>.
             </Alert>
+          )}
+
+          {usuario.ativo && usuario.perfil === Perfil.GESTOR && (
+            <PainelGestor usuarioId={usuario.id} />
           )}
 
           <Box

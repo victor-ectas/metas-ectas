@@ -25,7 +25,7 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     rotulo: 'Minhas metas',
     secao: 'GERAL',
     perfis: [GESTOR],
-    passo: 'P20',
+    passo: null,
   },
   {
     caminho: '/lancamentos',

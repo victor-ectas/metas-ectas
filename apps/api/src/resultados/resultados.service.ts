@@ -3,7 +3,9 @@ import type { Prisma } from '@metas/prisma';
 import { calcularCiclo, Decimal, type ResultadoMeta as ResultadoMotor } from '@metas/motor';
 import {
   Bloco,
+  type CicloResumo,
   CodigoErro,
+  type MemoriaCalculo,
   type MetaDoGestor,
   type NotasGestor,
   type ResultadoAcumulado,
@@ -49,6 +51,10 @@ const CAMPOS_RESULTADO = {
     },
   },
   resultadosMes: { orderBy: { mes: 'asc' } },
+  variaveis: {
+    select: { variavel: { select: { id: true, codigo: true, nome: true, tipo: true } } },
+    orderBy: { variavel: { codigo: 'asc' } },
+  },
 } as const satisfies Prisma.MetaSelect;
 
 type ItemBanco = Prisma.MetaGetPayload<{ select: typeof CAMPOS_RESULTADO }>;
@@ -83,7 +89,9 @@ function item(m: ItemBanco) {
       foraPeriodo: r.foraPeriodo,
       aviso: r.aviso,
     })),
-    memoria: (m.resultado?.memoria ?? null) as Record<string, unknown> | null,
+    // Gravada pelo próprio motor (`MemoriaCalculo`), com os decimais já como texto.
+    memoria: (m.resultado?.memoria ?? null) as MemoriaCalculo | null,
+    variaveis: m.variaveis.map((v) => v.variavel),
   };
 }
 
@@ -294,6 +302,7 @@ export class ResultadosService {
       select: {
         ...CAMPOS_RESULTADO,
         cicloId: true,
+        ciclo: { select: { id: true, ano: true, status: true } },
         setorId: true,
         responsavelId: true,
         regraPontuacao: true,
@@ -318,7 +327,9 @@ export class ResultadosService {
       responsavelId: meta.responsavelId,
       atribuidos: meta.atribuicoes.map((a) => a.usuarioId),
     };
-    if (!this.politicas.podeVerMeta(usuario, acesso)) {
+    const rascunhoOculto =
+      meta.ciclo.status === StatusCiclo.RASCUNHO && !this.politicas.veResultadosEmRascunho(usuario);
+    if (rascunhoOculto || !this.politicas.podeVerMeta(usuario, acesso)) {
       // Mesmo erro de meta inexistente: não revela que ela existe.
       throw new ErroApi(CodigoErro.NAO_ENCONTRADO, 'Meta não encontrada.');
     }
@@ -326,6 +337,7 @@ export class ResultadosService {
     return {
       ...item(meta),
       cicloId: meta.cicloId,
+      ciclo: meta.ciclo,
       setorId: meta.setorId,
       setorNome: meta.setor.nome,
       bloco: meta.setor.corporativo ? Bloco.CORPORATIVO : Bloco.DEPARTAMENTAL,
@@ -343,22 +355,64 @@ export class ResultadosService {
     };
   }
 
-  /** `GET /resultados/gestor/{id}?ciclo=`: metas atribuídas ao gestor e as notas (7.5). */
+  /**
+   * `GET /resultados/gestor/{id}?ciclo=`: metas atribuídas ao gestor e as notas (7.5). Sem ciclo,
+   * o ativo; sem ativo, o encerrado mais recente em que ele tem metas (P20).
+   */
   async porGestor(
     usuario: UsuarioAtual,
     gestorId: string,
-    cicloId: string,
+    cicloPedido: string | undefined,
   ): Promise<ResultadosGestor> {
     const acesso = this.politicas.acessoResultadosDoGestor(usuario, gestorId);
     if (acesso === null) {
       throw new ErroApi(CodigoErro.SEM_PERMISSAO, 'Você só pode ver os seus próprios resultados.');
     }
-    const [gestor, ciclo] = await Promise.all([
-      this.prisma.usuario.findUnique({ where: { id: gestorId }, select: { id: true, nome: true } }),
-      this.prisma.ciclo.findUnique({ where: { id: cicloId }, select: { id: true } }),
-    ]);
+    const gestor = await this.prisma.usuario.findUnique({
+      where: { id: gestorId },
+      select: { id: true, nome: true },
+    });
     if (gestor === null) throw new ErroApi(CodigoErro.NAO_ENCONTRADO, 'Gestor não encontrado.');
-    if (ciclo === null) throw new ErroApi(CodigoErro.NAO_ENCONTRADO, 'Ciclo não encontrado.');
+
+    const veRascunho = this.politicas.veResultadosEmRascunho(usuario);
+    const doSetorVisivel =
+      acesso === 'SETORES' ? { setorId: { in: [...usuario.setoresLeitor] } } : {};
+    // Ciclos em que o gestor tem metas que o usuário pode ver: o seletor de ano.
+    const ciclos: CicloResumo[] = await this.prisma.ciclo.findMany({
+      where: {
+        ...(veRascunho ? {} : { status: { not: StatusCiclo.RASCUNHO } }),
+        metas: {
+          some: {
+            ativo: true,
+            metaPaiId: null,
+            ...doSetorVisivel,
+            atribuicoes: { some: { usuarioId: gestorId } },
+          },
+        },
+      },
+      select: { id: true, ano: true, status: true },
+      orderBy: { ano: 'desc' },
+    });
+
+    let ciclo: CicloResumo | null;
+    if (cicloPedido === undefined) {
+      ciclo =
+        ciclos.find((c) => c.status === StatusCiclo.ATIVO) ??
+        ciclos.find((c) => c.status === StatusCiclo.ENCERRADO) ??
+        null;
+    } else {
+      ciclo = await this.prisma.ciclo.findUnique({
+        where: { id: cicloPedido },
+        select: { id: true, ano: true, status: true },
+      });
+      if (ciclo === null || (ciclo.status === StatusCiclo.RASCUNHO && !veRascunho)) {
+        throw new ErroApi(CodigoErro.NAO_ENCONTRADO, 'Ciclo não encontrado.');
+      }
+    }
+    if (ciclo === null) {
+      return { ciclo: null, ciclos, usuario: gestor, notas: null, metas: [] };
+    }
+    const cicloId = ciclo.id;
 
     const atribuicoes = await this.prisma.metaAtribuicao.findMany({
       where: {
@@ -367,7 +421,7 @@ export class ResultadosService {
           cicloId,
           ativo: true,
           metaPaiId: null,
-          ...(acesso === 'SETORES' ? { setorId: { in: [...usuario.setoresLeitor] } } : {}),
+          ...doSetorVisivel,
         },
       },
       select: {
@@ -380,6 +434,8 @@ export class ResultadosService {
             indicador: true,
             unidade: true,
             setorId: true,
+            operador: true,
+            tolerancia: true,
             regraPontuacao: true,
             ordem: true,
             setor: { select: { nome: true, corporativo: true } },
@@ -413,6 +469,8 @@ export class ResultadosService {
       bloco: meta.setor.corporativo ? Bloco.CORPORATIVO : Bloco.DEPARTAMENTAL,
       setorId: meta.setorId,
       setorNome: meta.setor.nome,
+      operador: meta.operador,
+      tolerancia: textoOuNulo(meta.tolerancia),
       regraPontuacao: meta.regraPontuacao,
       peso: texto(peso),
       pontos: resultado === null ? null : texto(resultado.pontos),
@@ -420,7 +478,8 @@ export class ResultadosService {
     }));
 
     return {
-      cicloId,
+      ciclo,
+      ciclos,
       usuario: gestor,
       notas: acesso === 'COMPLETO' ? await this.notas(cicloId, gestorId) : null,
       metas,

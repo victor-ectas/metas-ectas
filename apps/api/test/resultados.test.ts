@@ -373,13 +373,24 @@ describe('permissões (7.5)', () => {
     }
   });
 
-  it('ciclo, gestor ou meta inexistentes: 404; ciclo obrigatório: 400', async () => {
+  it('ciclo, gestor ou meta inexistentes: 404', async () => {
     expect((await como(admin).get(`/resultados/meta/${randomUUID()}`)).status).toBe(404);
     expect(
       (await como(admin).get(`/resultados/gestor/${randomUUID()}?ciclo=${cicloId}`)).status,
     ).toBe(404);
-    expect((await como(admin).get(`/resultados/gestor/${julia.id}`)).status).toBe(400);
+    expect(
+      (await como(admin).get(`/resultados/gestor/${julia.id}?ciclo=${randomUUID()}`)).status,
+    ).toBe(404);
     expect((await como(admin).post(`/ciclos/${randomUUID()}/recalcular`)).status).toBe(404);
+  });
+
+  it('sem ?ciclo=, vale o ciclo ativo (o Gestor não lista ciclos, P20)', async () => {
+    const r = await como(julia).get(`/resultados/gestor/${julia.id}`);
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const corpo = ResultadosGestorSchema.parse(r.body);
+    expect(corpo.ciclo).toEqual({ id: cicloId, ano: ANO_ATIVO, status: 'ATIVO' });
+    expect(corpo.ciclos.map((c) => c.id)).toEqual([cicloId]);
+    expect(corpo.metas.map((m) => m.metaId)).toContain(ct01.id);
   });
 });
 
@@ -559,5 +570,86 @@ describe('desempenho (aceite do P17)', () => {
     console.info(
       `Recálculo de 150 metas: ${String(recalculo.milissegundos)} ms no servidor, ${total.toFixed(0)} ms com a requisição.`,
     );
+  });
+});
+
+describe('ciclos do seletor de ano em Minhas metas (P20)', () => {
+  // Usa o ciclo em rascunho do teste de desempenho (150 metas da Julia e do Carlos).
+  const outroCiclo = () => banco().ciclo.findUniqueOrThrow({ where: { ano: ANO_FECHADO } });
+  const doGestor = async (quem: UsuarioBanco, gestor: UsuarioBanco, ciclo?: string) => {
+    const r = await como(quem).get(
+      `/resultados/gestor/${gestor.id}${ciclo === undefined ? '' : `?ciclo=${ciclo}`}`,
+    );
+    return {
+      status: r.status,
+      corpo: r.status === 200 ? ResultadosGestorSchema.parse(r.body) : null,
+    };
+  };
+
+  it('rascunho: só Administrador e Diretoria veem; para o Gestor ele não existe', async () => {
+    const rascunho = await outroCiclo();
+    expect(rascunho.status).toBe('RASCUNHO');
+    const daJulia = await doGestor(julia, julia);
+    expect(daJulia.corpo?.ciclos.map((c) => c.ano)).toEqual([ANO_ATIVO]);
+    expect((await doGestor(julia, julia, rascunho.id)).status).toBe(404);
+    const meta = await banco().meta.findFirstOrThrow({
+      where: { cicloId: rascunho.id, atribuicoes: { some: { usuarioId: julia.id } } },
+    });
+    expect((await como(julia).get(`/resultados/meta/${meta.id}`)).status).toBe(404);
+    expect((await como(admin).get(`/resultados/meta/${meta.id}`)).status).toBe(200);
+
+    for (const quem of [admin, diretoria]) {
+      const r = await doGestor(quem, julia);
+      expect(r.corpo?.ciclos.map((c) => c.ano)).toEqual([ANO_ATIVO, ANO_FECHADO]);
+      expect(r.corpo?.ciclo?.ano).toBe(ANO_ATIVO);
+    }
+  });
+
+  it('encerrados entram no seletor; sem ciclo ativo, abre o encerrado mais recente', async () => {
+    const anterior = await outroCiclo();
+    await banco().ciclo.update({
+      where: { id: anterior.id },
+      data: { status: 'ENCERRADO', encerradoEm: new Date() },
+    });
+    try {
+      const comAtivo = await doGestor(julia, julia);
+      expect(comAtivo.corpo?.ciclos.map((c) => [c.ano, c.status])).toEqual([
+        [ANO_ATIVO, 'ATIVO'],
+        [ANO_FECHADO, 'ENCERRADO'],
+      ]);
+      expect(comAtivo.corpo?.ciclo?.ano).toBe(ANO_ATIVO);
+      const pedido = await doGestor(julia, julia, anterior.id);
+      expect(pedido.corpo?.ciclo).toEqual({
+        id: anterior.id,
+        ano: ANO_FECHADO,
+        status: 'ENCERRADO',
+      });
+      expect(pedido.corpo?.metas.length).toBeGreaterThan(0);
+
+      await banco().ciclo.update({
+        where: { id: cicloId },
+        data: { status: 'ENCERRADO', encerradoEm: new Date() },
+      });
+      const semAtivo = await doGestor(julia, julia);
+      expect(semAtivo.corpo?.ciclo?.ano).toBe(ANO_ATIVO);
+      expect(semAtivo.corpo?.ciclo?.status).toBe('ENCERRADO');
+    } finally {
+      await banco().ciclo.update({
+        where: { id: cicloId },
+        data: { status: 'ATIVO', encerradoEm: null },
+      });
+      await banco().ciclo.update({
+        where: { id: anterior.id },
+        data: { status: 'RASCUNHO', encerradoEm: null },
+      });
+    }
+  });
+
+  it('gestor ainda sem metas: sem ciclo, sem notas e sem erro', async () => {
+    const novo = await criarUsuario('GESTOR', { nome: 'Gestor sem metas' });
+    tokens.set(novo.id, await emitirToken({ oid: novo.entraOid, preferred_username: novo.email }));
+    const r = await doGestor(novo, novo);
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ ciclo: null, ciclos: [], notas: null, metas: [] });
   });
 });

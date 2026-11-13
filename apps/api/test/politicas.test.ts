@@ -176,6 +176,15 @@ describe('PoliticasService (CLAUDE.md 7.5)', () => {
       expect(politicas.acessoResultadosDoGestor(u, u.id)).toBeNull();
     });
 
+    it('ciclo em rascunho: só Administrador e Diretoria veem os resultados (P20)', () => {
+      expect(TODOS.map((u) => politicas.veResultadosEmRascunho(u))).toEqual([
+        true,
+        true,
+        false,
+        false,
+      ]);
+    });
+
     it('pontos dos outros gestores numa meta corporativa: todos menos o Gestor', () => {
       expect(TODOS.map((u) => politicas.vePontosDeTodos(u))).toEqual([true, true, false, true]);
     });

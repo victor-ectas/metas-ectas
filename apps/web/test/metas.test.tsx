@@ -241,8 +241,9 @@ describe('editor: nova meta (CT-01)', () => {
       });
     });
     expect(await screen.findByText('Meta FISCAL_PRAZO cadastrada.')).toBeInTheDocument();
-    // Fluxo longo de propósito (as 5 etapas): mais tempo que o padrão.
-  }, 20_000);
+    // Fluxo longo de propósito (as 5 etapas): ~6,5 s sozinho, mas com os 16 arquivos da web em
+    // paralelo passou de 20 s no P20 (só disputa de CPU; o fluxo não mudou).
+  }, 40_000);
 
   it('erro de fórmula aparece ao vivo, em português e com a posição', async () => {
     const u = userEvent.setup();

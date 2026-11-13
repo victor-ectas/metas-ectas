@@ -11,7 +11,7 @@ export function cicloInicial(ciclos: readonly Ciclo[]): Ciclo | undefined {
 
 /** Botões de escolha do ciclo (ano e situação), usados nas telas de cadastro por ciclo. */
 export function SeletorCiclo(props: {
-  readonly ciclos: readonly Ciclo[];
+  readonly ciclos: readonly Pick<Ciclo, 'id' | 'ano' | 'status'>[];
   readonly selecionado: string | undefined;
   readonly aoEscolher: (id: string) => void;
 }) {

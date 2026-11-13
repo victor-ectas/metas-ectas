@@ -80,8 +80,16 @@ describe('layout em 360 px (celular)', () => {
 
 describe('Início', () => {
   it('Gestor vê perfil, e-mail, setores e atalhos', async () => {
+    const gestor = sessaoDe('GESTOR', { setores: SETORES });
     renderizarApp({
-      respostas: { '/me': { status: 200, corpo: sessaoDe('GESTOR', { setores: SETORES }) } },
+      respostas: {
+        '/me': { status: 200, corpo: gestor },
+        '/lancamentos/pendencias': { status: 200, corpo: { ciclo: null, meses: [] } },
+        [`/resultados/gestor/${gestor.usuario.id}`]: {
+          status: 200,
+          corpo: { ciclo: null, ciclos: [], usuario: gestor.usuario, notas: null, metas: [] },
+        },
+      },
     });
     await screen.findByRole('heading', { name: 'Olá, Julia' });
     expect(

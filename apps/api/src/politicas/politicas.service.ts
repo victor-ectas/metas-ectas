@@ -88,6 +88,14 @@ export class PoliticasService {
   }
 
   /**
+   * Resultados de um ciclo em rascunho (P20, decisão de 13/11/2026): só Admin e Diretoria. O
+   * Gestor e o Leitor veem o ciclo ativo e os encerrados; o rascunho ainda está em montagem.
+   */
+  veResultadosEmRascunho(usuario: UsuarioAtual): boolean {
+    return this.veTudo(usuario);
+  }
+
+  /**
    * Pontos de cada gestor numa meta corporativa (RN-05): quem vê a meta vê os pontos de todos,
    * menos o Gestor, que vê só a própria atribuição.
    */

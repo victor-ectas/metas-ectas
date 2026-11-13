@@ -182,3 +182,22 @@ export const LancamentosSalvosSchema = z.object({
   ),
 });
 export type LancamentosSalvos = z.infer<typeof LancamentosSalvosSchema>;
+
+/** Um mês com prazo correndo no Início (RF-28). */
+export const MesPendenteSchema = MesLancamentoSchema.extend({
+  /** Variáveis que o usuário lança no mês (as `pendentes` são as vazias entre elas). */
+  total: z.number().int(),
+});
+export type MesPendente = z.infer<typeof MesPendenteSchema>;
+
+/**
+ * `GET /lancamentos/pendencias` (Início do Gestor, RF-28): os meses já terminados que ainda
+ * aceitam lançamento (abertos ou reabertos para ele), com o prazo e quantas variáveis faltam. O
+ * mês corrente fica de fora: ainda está em andamento (decisão de 13/11/2026).
+ */
+export const PendenciasSchema = z.object({
+  /** `null` sem ciclo ativo. */
+  ciclo: z.object({ id: UuidSchema, ano: z.number().int(), status: StatusCicloSchema }).nullable(),
+  meses: z.array(MesPendenteSchema),
+});
+export type Pendencias = z.infer<typeof PendenciasSchema>;

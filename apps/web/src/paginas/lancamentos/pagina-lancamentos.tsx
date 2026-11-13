@@ -28,12 +28,13 @@ import { z } from 'zod';
 import { ErroApi, mensagemDeErro } from '../../api/erro-api';
 import { useLancamentos, useSalvarLancamentos } from '../../api/lancamentos';
 import { plural } from '../../app/plural';
-import { ROTULO_OPERADOR, ROTULO_SITUACAO } from '../../app/rotulos';
+import { ROTULO_OPERADOR } from '../../app/rotulos';
 import { CORES } from '../../app/tema';
 import { useAvisar } from '../../componentes/avisos';
 import { CabecalhoPagina } from '../../componentes/cabecalho-pagina';
 import { DialogoConfirmacao } from '../../componentes/dialogo-confirmacao';
 import { Pagina } from '../../componentes/pagina';
+import { SituacaoMeta } from '../../componentes/situacao-meta';
 import {
   formatarData,
   formatarDataHora,
@@ -652,7 +653,7 @@ function Previa(props: {
         <Indicador rotulo="Objetivo" valor={`${ROTULO_OPERADOR[meta.operador]} ${objetivo}`} />
       )}
       <Box sx={{ justifySelf: { sm: 'end' } }}>
-        <Situacao situacao={r.situacao} />
+        <SituacaoMeta situacao={r.situacao} />
       </Box>
     </Box>
   );
@@ -669,27 +670,6 @@ function Indicador(props: { readonly rotulo: string; readonly valor: string }) {
       >
         {props.valor}
       </Typography>
-    </Box>
-  );
-}
-
-function Situacao({ situacao }: { readonly situacao: keyof typeof ROTULO_SITUACAO }) {
-  const batida = situacao === 'BATIDA';
-  return (
-    <Box
-      component="span"
-      sx={{
-        display: 'inline-block',
-        px: 1.25,
-        py: 0.5,
-        borderRadius: 999,
-        fontSize: 13,
-        fontWeight: 700,
-        bgcolor: batida ? CORES.turquesaClaro : '#F3E8DF',
-        color: batida ? CORES.marinho : '#7C2D12',
-      }}
-    >
-      {ROTULO_SITUACAO[situacao]}
     </Box>
   );
 }

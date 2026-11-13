@@ -9,6 +9,7 @@ import {
   type LancamentosMes,
   LancamentosMesSchema,
   LancamentosSalvosSchema,
+  PendenciasSchema,
   type Meta,
   MetaSchema,
   type ProblemaLancamento,
@@ -211,6 +212,30 @@ describe('GET /lancamentos', () => {
       ...Array<string>(9).fill('FUTURO'),
     ]);
     expect(mesAtual.meses[0]?.diasUteisRestantes).toBeNull();
+  });
+
+  it('pendências do Início (RF-28): só os meses terminados ainda abertos, sem o corrente', async () => {
+    const r = await como(julia).get('/lancamentos/pendencias');
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const pendencias = PendenciasSchema.parse(r.body);
+    const prazo = dataFechamento(ANO_ATIVO, 2, []);
+    // Em 10/03: janeiro fechado, fevereiro terminou e está aberto, março ainda corre.
+    expect(pendencias).toEqual({
+      ciclo: { id: cicloId, ano: ANO_ATIVO, status: 'ATIVO' },
+      meses: [
+        {
+          mes: 2,
+          status: 'ABERTO',
+          fechaEm: prazo.toJSDate().toISOString(),
+          diasUteisRestantes: diasUteisRestantes(AGORA, prazo, []),
+          pendentes: 5,
+          total: 5,
+        },
+      ],
+    });
+    for (const quem of [admin, diretoria, leitor]) {
+      expect((await como(quem).get('/lancamentos/pendencias')).status).toBe(403);
+    }
   });
 
   it('status do mês: janeiro fechado, abril futuro', async () => {

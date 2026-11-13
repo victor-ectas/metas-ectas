@@ -15,6 +15,7 @@ import {
   type LancamentosMes,
   type LancamentosSalvos,
   type MesLancamento,
+  type Pendencias,
   type MetaLancamento,
   OrigemLancamento,
   Perfil,
@@ -203,30 +204,7 @@ export class LancamentosService {
 
     // Seletor de meses: status para o usuário, prazo, dias úteis e pendências (9.2).
     const minhas = mostradas.filter((v) => editaveis.has(v.id));
-    const meses: MesLancamento[] = Array.from({ length: 12 }, (_, i) => {
-      const m = i + 1;
-      let status = this.status(calendario, m, agora, this.reaberturasDe(calendario, usuario, null));
-      const reabertaParaAlguma = minhas.some(
-        (v) =>
-          this.status(calendario, m, agora, this.reaberturasDe(calendario, usuario, v)) ===
-          StatusMes.REABERTO,
-      );
-      if (status === StatusMes.FECHADO && reabertaParaAlguma) status = StatusMes.REABERTO;
-      const prazo = dataFechamento(ciclo.ano, m, calendario.feriados);
-      return {
-        mes: m,
-        status,
-        fechaEm: prazo.toJSDate().toISOString(),
-        diasUteisRestantes:
-          status === StatusMes.ABERTO
-            ? diasUteisRestantes(agora, prazo, calendario.feriados)
-            : null,
-        pendentes: minhas.filter((v) => {
-          const l = porChave.get(`${v.id}:${String(m)}`);
-          return l === undefined || l.valor === null;
-        }).length,
-      };
-    });
+    const meses = this.meses(usuario, ciclo.ano, calendario, agora, minhas, porChave);
     const mes = mesPedido ?? this.mesInicial(meses, ciclo.ano, agora);
 
     const variaveis: VariavelLancamento[] = mostradas.map((v) => {
@@ -293,6 +271,45 @@ export class LancamentosService {
       variaveis,
       metas,
     };
+  }
+
+  /**
+   * `GET /lancamentos/pendencias` (Início, RF-28): meses já terminados que ainda aceitam
+   * lançamento do usuário, com o prazo e as variáveis dele vazias. O mês corrente fica de fora,
+   * porque ainda está em andamento (decisão de 13/11/2026). Sem ciclo ativo, lista vazia.
+   */
+  async pendencias(usuario: UsuarioAtual): Promise<Pendencias> {
+    const ciclo = await this.prisma.ciclo.findFirst({
+      where: { status: StatusCiclo.ATIVO },
+      select: { id: true, ano: true, status: true },
+    });
+    if (ciclo === null) return { ciclo: null, meses: [] };
+    const [calendario, todas, responsaveis] = await Promise.all([
+      this.calendario(this.prisma, ciclo.id, ciclo.ano),
+      this.prisma.variavel.findMany({
+        where: { cicloId: ciclo.id, ativo: true },
+        select: VARIAVEL,
+      }),
+      this.responsaveisDosSetores(this.prisma, ciclo.id),
+    ]);
+    const minhas = todas.filter((v) => this.responde(usuario, v, responsaveis));
+    if (minhas.length === 0) return { ciclo, meses: [] };
+    const lancamentos = await this.prisma.lancamento.findMany({
+      where: { variavelId: { in: minhas.map((v) => v.id) } },
+      select: { variavelId: true, mes: true, valor: true },
+    });
+    const porChave = new Map(lancamentos.map((l) => [`${l.variavelId}:${String(l.mes)}`, l]));
+    const agora = this.relogio.agora();
+    const hoje = noFusoDasRegras(agora);
+    const terminou = (mes: number) =>
+      ciclo.ano < hoje.year || (ciclo.ano === hoje.year && mes < hoje.month);
+    const meses = this.meses(usuario, ciclo.ano, calendario, agora, minhas, porChave)
+      .filter(
+        (m) =>
+          terminou(m.mes) && (m.status === StatusMes.ABERTO || m.status === StatusMes.REABERTO),
+      )
+      .map((m) => ({ ...m, total: minhas.length }));
+    return { ciclo, meses };
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -537,6 +554,44 @@ export class LancamentosService {
   // ---------------------------------------------------------------------------------------------
   // Apoio
   // ---------------------------------------------------------------------------------------------
+
+  /**
+   * Os 12 meses do ciclo para o usuário: status (fica `REABERTO` se a reabertura vale para o
+   * setor de alguma variável dele), prazo, dias úteis restantes e variáveis dele vazias no mês.
+   */
+  private meses(
+    usuario: UsuarioAtual,
+    ano: number,
+    calendario: Calendario,
+    agora: Date,
+    minhas: readonly VariavelBanco[],
+    porChave: ReadonlyMap<string, { valor: Prisma.Decimal | null }>,
+  ): MesLancamento[] {
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1;
+      let status = this.status(calendario, m, agora, this.reaberturasDe(calendario, usuario, null));
+      const reabertaParaAlguma = minhas.some(
+        (v) =>
+          this.status(calendario, m, agora, this.reaberturasDe(calendario, usuario, v)) ===
+          StatusMes.REABERTO,
+      );
+      if (status === StatusMes.FECHADO && reabertaParaAlguma) status = StatusMes.REABERTO;
+      const prazo = dataFechamento(ano, m, calendario.feriados);
+      return {
+        mes: m,
+        status,
+        fechaEm: prazo.toJSDate().toISOString(),
+        diasUteisRestantes:
+          status === StatusMes.ABERTO
+            ? diasUteisRestantes(agora, prazo, calendario.feriados)
+            : null,
+        pendentes: minhas.filter((v) => {
+          const l = porChave.get(`${v.id}:${String(m)}`);
+          return l === undefined || l.valor === null;
+        }).length,
+      };
+    });
+  }
 
   /**
    * Mês mostrado quando a tela não pede um (especificação 9.2): o aberto mais antigo com
