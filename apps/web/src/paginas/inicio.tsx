@@ -1,24 +1,13 @@
-import {
-  Alert,
-  AlertTitle,
-  Box,
-  ButtonBase,
-  Card,
-  CardContent,
-  Chip,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, AlertTitle, Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Perfil } from '@metas/tipos';
 import { Link as RouterLink } from 'react-router';
 
 import { useSessao } from '../api/sessao';
 import { ICONES } from '../app/icones';
-import { itensDoUsuario, ROTULO_PERFIL } from '../app/menu';
-import { CORES } from '../app/tema';
-import simboloBranco from '../assets/ectas-simbolo-branco.png';
-import { OndaBorda } from '../componentes/ondas';
+import { itensDoUsuario } from '../app/menu';
+import { CORES, MARCA, transparente } from '../app/tema';
+import { padronagemOndas } from '../componentes/padronagem';
 import { LARGURA_CONTEUDO, MARGEM_PAGINA, Pagina } from '../componentes/pagina';
 import { PainelGestor } from './inicio-gestor';
 
@@ -34,47 +23,48 @@ const PAPEL: Readonly<Record<Perfil, string>> = {
   LEITOR: 'Consulte os resultados dos setores liberados para você.',
 };
 
-/** Faixa de água no topo do Início, com a borda em ondas do site da ECTAS. */
+/**
+ * Faixa de boas-vindas no azul da marca, com a padronagem de ondas do manual sumindo da direita
+ * para a esquerda e o fio turquesa embaixo (o recorte de cores do uniforme da ECTAS).
+ */
 function FaixaBoasVindas(props: { readonly nome: string; readonly texto: string | null }) {
   return (
     <Box
       component="section"
       aria-labelledby="titulo-inicio"
-      sx={{ position: 'relative', overflow: 'hidden', bgcolor: CORES.azul, color: CORES.branco }}
-    >
-      {/* Marca d'água com as ondas do logotipo, como no site. */}
-      <Box
-        component="img"
-        src={simboloBranco}
-        alt=""
-        width={282}
-        height={192}
-        sx={{
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        bgcolor: MARCA.azul,
+        color: MARCA.branco,
+        borderBottom: `4px solid ${MARCA.turquesa}`,
+        '&::before': {
+          content: '""',
           position: 'absolute',
-          right: { sm: -24, md: 48 },
-          top: 8,
-          opacity: 0.1,
-          display: { xs: 'none', sm: 'block' },
+          inset: 0,
+          ...padronagemOndas(alpha(MARCA.branco, 0.13)),
+          maskImage: 'linear-gradient(to left, #000 10%, transparent 75%)',
+          WebkitMaskImage: 'linear-gradient(to left, #000 10%, transparent 75%)',
           pointerEvents: 'none',
-        }}
-      />
-      <Box sx={{ px: MARGEM_PAGINA, pt: { xs: 3, md: 5 }, pb: { xs: 1, md: 2 } }}>
-        <Box sx={{ maxWidth: LARGURA_CONTEUDO, position: 'relative' }}>
+        },
+      }}
+    >
+      <Box sx={{ position: 'relative', px: MARGEM_PAGINA, py: { xs: 4, md: 6 } }}>
+        <Box sx={{ maxWidth: LARGURA_CONTEUDO }}>
           <Typography
             id="titulo-inicio"
             variant="h1"
-            sx={{ fontSize: { xs: '1.625rem', md: '2.125rem' } }}
+            sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 300 }}
           >
             Olá, {props.nome}
           </Typography>
           {props.texto !== null && (
-            <Typography sx={{ mt: 1, maxWidth: '52ch', color: alpha(CORES.branco, 0.9) }}>
+            <Typography sx={{ mt: 1.25, maxWidth: '52ch', color: alpha(MARCA.branco, 0.92) }}>
               {props.texto}
             </Typography>
           )}
         </Box>
       </Box>
-      <OndaBorda />
     </Box>
   );
 }
@@ -88,7 +78,10 @@ export function Inicio() {
   const { data: sessao } = useSessao();
   if (sessao === undefined) return null;
   const { usuario } = sessao;
-  const atalhos = itensDoUsuario(usuario).filter((item) => item.caminho !== '/');
+  // As Configurações ficam no menu, na seção Conta; os atalhos são das telas de trabalho.
+  const atalhos = itensDoUsuario(usuario).filter(
+    (item) => item.caminho !== '/' && item.caminho !== '/configuracoes',
+  );
 
   return (
     <>
@@ -96,7 +89,7 @@ export function Inicio() {
         nome={primeiroNome(usuario.nome)}
         texto={usuario.ativo ? PAPEL[usuario.perfil] : null}
       />
-      <Pagina colada>
+      <Pagina>
         <Stack spacing={3}>
           {!usuario.ativo && (
             <Alert severity="warning">
@@ -110,128 +103,65 @@ export function Inicio() {
             <PainelGestor usuarioId={usuario.id} />
           )}
 
-          <Box
-            sx={{
-              display: 'grid',
-              gap: 3,
-              gridTemplateColumns: { xs: '1fr', lg: atalhos.length > 0 ? '340px 1fr' : '1fr' },
-              alignItems: 'start',
-            }}
-          >
-            <Card component="section" aria-labelledby="titulo-acesso">
-              <CardContent sx={{ p: 3 }}>
-                <Typography id="titulo-acesso" variant="h2" sx={{ color: CORES.marinho, mb: 2 }}>
-                  Seu acesso
-                </Typography>
-                <Box component="dl" sx={{ m: 0, display: 'grid', gap: 2 }}>
-                  <div>
-                    <Typography component="dt" variant="body2" color="text.secondary">
-                      Perfil
-                    </Typography>
-                    <Typography component="dd" sx={{ m: 0, fontWeight: 600 }}>
-                      {ROTULO_PERFIL[usuario.perfil]}
-                      {usuario.gerenteGeral ? ' · Gerente Geral' : ''}
-                      {usuario.ativo ? '' : ' (inativo)'}
-                    </Typography>
-                  </div>
-                  <div>
-                    <Typography component="dt" variant="body2" color="text.secondary">
-                      E-mail
-                    </Typography>
-                    <Typography component="dd" sx={{ m: 0, overflowWrap: 'anywhere' }}>
-                      {usuario.email}
-                    </Typography>
-                  </div>
-                  <div>
-                    <Typography component="dt" variant="body2" color="text.secondary">
-                      Setores
-                    </Typography>
-                    <Box component="dd" sx={{ m: 0, pt: 0.5 }}>
-                      {sessao.todosOsSetores ? (
-                        <Typography>Todos os setores</Typography>
-                      ) : sessao.setores.length === 0 ? (
-                        <Typography color="text.secondary">Nenhum setor atribuído</Typography>
-                      ) : (
-                        <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap' }}>
-                          {sessao.setores.map((setor) => (
-                            <Chip
-                              key={setor.id}
-                              label={setor.nome}
-                              sx={{ bgcolor: CORES.turquesaClaro, color: CORES.marinho }}
-                            />
-                          ))}
-                        </Stack>
-                      )}
-                    </Box>
-                  </div>
-                </Box>
-              </CardContent>
-            </Card>
-
-            {atalhos.length > 0 && (
-              <Box component="section" aria-labelledby="titulo-atalhos">
-                <Typography
-                  id="titulo-atalhos"
-                  variant="h2"
-                  sx={{ color: CORES.marinho, mb: 2, mt: { lg: 0.5 } }}
-                >
-                  Atalhos
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gap: 1.5,
-                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' },
-                  }}
-                >
-                  {atalhos.map((item) => (
-                    <ButtonBase
-                      key={item.caminho}
-                      component={RouterLink}
-                      to={item.caminho}
+          {atalhos.length > 0 && (
+            <Box component="section" aria-labelledby="titulo-atalhos">
+              <Typography id="titulo-atalhos" variant="h2" sx={{ mb: 2 }}>
+                Atalhos
+              </Typography>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 1.5,
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                }}
+              >
+                {atalhos.map((item) => (
+                  <ButtonBase
+                    key={item.caminho}
+                    component={RouterLink}
+                    to={item.caminho}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      gap: 1.5,
+                      minHeight: 56,
+                      px: 2,
+                      borderRadius: 3,
+                      border: `1px solid ${CORES.borda}`,
+                      bgcolor: CORES.branco,
+                      color: CORES.marinho,
+                      fontWeight: 600,
+                      fontSize: '0.9375rem',
+                      textAlign: 'left',
+                      transitionProperty: 'border-color, background-color',
+                      transitionDuration: '150ms',
+                      '&:hover': {
+                        borderColor: CORES.azul,
+                        bgcolor: transparente(CORES.turquesaClaro, 60),
+                      },
+                    }}
+                  >
+                    <Box
+                      aria-hidden
                       sx={{
-                        justifyContent: 'flex-start',
-                        gap: 1.5,
-                        minHeight: 56,
-                        px: 2,
-                        borderRadius: 3,
-                        border: `1px solid ${CORES.borda}`,
-                        bgcolor: CORES.branco,
-                        color: CORES.marinho,
-                        fontWeight: 600,
-                        fontSize: '0.9375rem',
-                        textAlign: 'left',
-                        transitionProperty: 'border-color, background-color',
-                        transitionDuration: '150ms',
-                        '&:hover': {
-                          borderColor: CORES.azul,
-                          bgcolor: alpha(CORES.turquesaClaro, 0.4),
-                        },
+                        display: 'grid',
+                        placeItems: 'center',
+                        width: 36,
+                        height: 36,
+                        flexShrink: 0,
+                        borderRadius: '50%',
+                        bgcolor: CORES.turquesaClaro,
+                        color: CORES.azul,
+                        '& svg': { fontSize: 20 },
                       }}
                     >
-                      <Box
-                        aria-hidden
-                        sx={{
-                          display: 'grid',
-                          placeItems: 'center',
-                          width: 36,
-                          height: 36,
-                          flexShrink: 0,
-                          borderRadius: '50%',
-                          bgcolor: CORES.turquesaClaro,
-                          color: CORES.azul,
-                          '& svg': { fontSize: 20 },
-                        }}
-                      >
-                        {ICONES[item.caminho]}
-                      </Box>
-                      {item.rotulo}
-                    </ButtonBase>
-                  ))}
-                </Box>
+                      {ICONES[item.caminho]}
+                    </Box>
+                    {item.rotulo}
+                  </ButtonBase>
+                ))}
               </Box>
-            )}
-          </Box>
+            </Box>
+          )}
         </Stack>
       </Pagina>
     </>

@@ -68,7 +68,7 @@ describe('layout em 360 px (celular)', () => {
       within(menu)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Início', 'Minhas metas', 'Lançamentos', 'Importar']);
+    ).toEqual(['Início', 'Minhas metas', 'Lançamentos', 'Importar', 'Configurações']);
 
     await usuario.click(within(menu).getByRole('link', { name: 'Lançamentos' }));
     expect(await screen.findByRole('heading', { name: 'Lançamentos' })).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe('layout em 360 px (celular)', () => {
 });
 
 describe('Início', () => {
-  it('Gestor vê perfil, e-mail, setores e atalhos', async () => {
+  it('Gestor vê o que faz no sistema e os atalhos (a conta fica nas Configurações)', async () => {
     const gestor = sessaoDe('GESTOR', { setores: SETORES });
     renderizarApp({
       respostas: {
@@ -95,30 +95,20 @@ describe('Início', () => {
     expect(
       screen.getByText('Lance os resultados de cada mês e acompanhe suas metas.'),
     ).toBeInTheDocument();
-    const acesso = screen.getByRole('region', { name: 'Seu acesso' });
-    expect(within(acesso).getByText('Gestor')).toBeInTheDocument();
-    expect(within(acesso).getByText('julia@empresa.com.br')).toBeInTheDocument();
-    expect(within(acesso).getByText('Recursos Humanos')).toBeInTheDocument();
-    expect(within(acesso).getByText('Tecnologia')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Seu acesso' })).not.toBeInTheDocument();
     const atalhos = screen.getByRole('region', { name: 'Atalhos' });
     expect(within(atalhos).getByRole('link', { name: 'Lançamentos' })).toHaveAttribute(
       'href',
       '/lancamentos',
     );
+    expect(within(atalhos).queryByRole('link', { name: 'Configurações' })).not.toBeInTheDocument();
   });
 
-  it('Administrador vê todos os setores', async () => {
+  it('Administrador vê nome e perfil na barra superior', async () => {
     renderizarApp({ respostas: { '/me': { status: 200, corpo: sessaoDe('ADMIN') } } });
-    expect(await screen.findByText('Todos os setores')).toBeInTheDocument();
-    const acesso = screen.getByRole('region', { name: 'Seu acesso' });
-    expect(within(acesso).getByText('Administrador')).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Olá, Julia' });
     // Barra superior do desktop: nome e perfil de quem está logado.
     expect(screen.getByRole('banner')).toHaveTextContent('Julia Martins SouzaAdministrador');
-  });
-
-  it('Leitor sem setores liberados', async () => {
-    renderizarApp({ respostas: { '/me': { status: 200, corpo: sessaoDe('LEITOR') } } });
-    expect(await screen.findByText('Nenhum setor atribuído')).toBeInTheDocument();
   });
 
   it('usuário inativo vê o aviso e nenhum atalho', async () => {
@@ -128,10 +118,14 @@ describe('Início', () => {
     expect(await screen.findByText('Seu acesso ainda não foi liberado')).toBeInTheDocument();
     // Inativo não vê a descrição do que o perfil faz.
     expect(screen.queryByText(/Consulte os resultados/)).not.toBeInTheDocument();
-    expect(screen.getByText('Leitor · Gerente Geral (inativo)')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Atalhos' })).not.toBeInTheDocument();
+    // Inativo vê só o Início e as Configurações (aparência e a própria conta).
     const menu = screen.getByRole('navigation', { name: 'Menu principal' });
-    expect(within(menu).getAllByRole('link')).toHaveLength(1);
+    expect(
+      within(menu)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Início', 'Configurações']);
   });
 });
 

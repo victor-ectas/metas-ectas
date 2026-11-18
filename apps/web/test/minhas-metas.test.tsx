@@ -458,7 +458,7 @@ describe('Início do Gestor (RF-28)', () => {
     const { chamadas } = renderizarApp({
       respostas: { '/me': { status: 200, corpo: sessaoDe('ADMIN') } },
     });
-    await screen.findByText('Todos os setores');
+    await screen.findByRole('region', { name: 'Atalhos' });
     expect(screen.queryByRole('region', { name: 'Pendências' })).toBeNull();
     await waitFor(() => {
       expect(chamadas.map((c) => c.url).filter((u) => !u.endsWith('/me'))).toEqual([]);

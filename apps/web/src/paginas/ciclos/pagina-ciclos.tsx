@@ -308,7 +308,7 @@ function Fecha({ gestor }: { readonly gestor: PesosGestor }) {
         gap: 0.5,
         fontWeight: 600,
         fontSize: 14,
-        color: gestor.ok ? CORES.marinho : '#9A3412',
+        color: gestor.ok ? CORES.marinho : CORES.alertaTexto,
         whiteSpace: 'nowrap',
       }}
     >
@@ -420,7 +420,7 @@ function ListaProblemas(props: {
           m: 0,
           bgcolor: CORES.branco,
           border: `1px solid ${CORES.borda}`,
-          borderLeft: `4px solid ${bloqueia ? '#C2410C' : CORES.turquesa}`,
+          borderLeft: `4px solid ${bloqueia ? CORES.alertaPonto : CORES.turquesa}`,
           borderRadius: 2,
         }}
       >
@@ -445,7 +445,7 @@ function ListaProblemas(props: {
               <Icone
                 fontSize="small"
                 aria-hidden
-                sx={{ mt: 0.25, color: bloqueia ? '#C2410C' : CORES.azul }}
+                sx={{ mt: 0.25, color: bloqueia ? CORES.alertaPonto : CORES.azul }}
               />
               <Typography sx={{ minWidth: 0, overflowWrap: 'break-word' }}>{p.mensagem}</Typography>
               <Link

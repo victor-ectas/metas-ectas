@@ -6,13 +6,13 @@ import { CORES } from '../app/tema';
 
 /**
  * Cores da situação (RN-25). A cor só reforça: o texto vem sempre junto (nunca só cor, RNF-11).
- * Contraste do texto sobre o fundo ≥ 4,5:1 em todas.
+ * Contraste do texto sobre o fundo ≥ 4,5:1 em todas, no claro e no escuro (tons do tema).
  */
 const ESTILO: Readonly<Record<Situacao, { fundo: string; texto: string; ponto: string }>> = {
   BATIDA: { fundo: CORES.turquesaClaro, texto: CORES.marinho, ponto: CORES.turquesa },
-  ABAIXO: { fundo: '#F6E9DC', texto: '#7C2D12', ponto: '#C2410C' },
-  FORA_DA_FAIXA: { fundo: '#F8E4E4', texto: '#8A1C1C', ponto: '#C53030' },
-  SEM_DADOS: { fundo: '#EEF0F2', texto: CORES.textoSecundario, ponto: '#9AA7B2' },
+  ABAIXO: { fundo: CORES.alertaFundo, texto: CORES.alertaTexto, ponto: CORES.alertaPonto },
+  FORA_DA_FAIXA: { fundo: CORES.erroFundo, texto: CORES.erroTexto, ponto: CORES.erroPonto },
+  SEM_DADOS: { fundo: CORES.neutroFundo, texto: CORES.textoSecundario, ponto: CORES.neutroPonto },
 };
 
 /** Situação da meta com texto e cor: "Batida", "Abaixo", "Fora da faixa", "Sem dados". */

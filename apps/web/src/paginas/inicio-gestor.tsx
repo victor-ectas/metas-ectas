@@ -6,6 +6,7 @@ import { mensagemDeErro } from '../api/erro-api';
 import { usePendencias, useResultadosGestor } from '../api/resultados';
 import { plural } from '../app/plural';
 import { CORES } from '../app/tema';
+import { NivelAgua } from '../componentes/nivel-agua';
 import { formatarData, nomeMes } from '../formatacao';
 import { resumoNota } from './minhas-metas/exibicao';
 
@@ -35,7 +36,7 @@ function Pendencias() {
   return (
     <Card component="section" aria-labelledby="titulo-pendencias">
       <CardContent sx={{ p: 3 }}>
-        <Typography id="titulo-pendencias" variant="h2" sx={{ color: CORES.marinho, mb: 2 }}>
+        <Typography id="titulo-pendencias" variant="h2" sx={{ mb: 2.5 }}>
           Pendências
         </Typography>
         {consulta.isError ? (
@@ -65,7 +66,11 @@ function MesComPrazo({ mes, ano }: { readonly mes: MesPendente; readonly ano: nu
   const completo = mes.pendentes === 0;
   return (
     <Box component="li" sx={{ display: 'grid', gap: 1 }}>
-      <Typography sx={{ fontWeight: 700, color: CORES.marinho }}>{nome}</Typography>
+      <Typography
+        sx={{ fontSize: '1.5rem', fontWeight: 300, lineHeight: 1.2, color: CORES.marinho }}
+      >
+        {nome}
+      </Typography>
       <Typography>
         {completo
           ? `Tudo lançado: ${plural(mes.total, 'variável', 'variáveis')}.`
@@ -106,7 +111,7 @@ function NotaParcial(props: { readonly usuarioId: string }) {
   return (
     <Card component="section" aria-labelledby="titulo-nota-inicio">
       <CardContent sx={{ p: 3 }}>
-        <Typography id="titulo-nota-inicio" variant="h2" sx={{ color: CORES.marinho, mb: 2 }}>
+        <Typography id="titulo-nota-inicio" variant="h2" sx={{ mb: 2.5 }}>
           {encerrado ? 'Nota final' : 'Nota parcial'}
         </Typography>
         {consulta.isError ? (
@@ -131,24 +136,35 @@ function ResumoDaNota(props: {
   const resumo = resumoNota(props.notas);
   return (
     <Stack spacing={2}>
-      <Typography
-        component="p"
-        sx={{
-          color: CORES.marinho,
-          fontWeight: 700,
-          fontSize: '2.5rem',
-          lineHeight: 1.1,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {resumo.total}
-        <Box
-          component="span"
-          sx={{ ml: 1, fontSize: '1rem', fontWeight: 600, color: CORES.textoSecundario }}
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2.5, flexWrap: 'wrap' }}>
+        <NivelAgua nivel={resumo.nivel} largura={124} />
+        <Typography
+          component="p"
+          sx={{
+            color: CORES.marinho,
+            fontWeight: 300,
+            fontSize: '3.25rem',
+            lineHeight: 0.95,
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+          }}
         >
-          de {resumo.peso} pontos
-        </Box>
-      </Typography>
+          {resumo.total}
+          <Box
+            component="span"
+            sx={{
+              display: 'block',
+              mt: 1,
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              letterSpacing: 0,
+              color: CORES.textoSecundario,
+            }}
+          >
+            de {resumo.peso} pontos
+          </Box>
+        </Typography>
+      </Box>
       <Typography variant="body2" color="text.secondary">
         {props.encerrado
           ? `Ciclo ${String(props.ano)}, encerrado.`

@@ -1,21 +1,26 @@
 import { Box, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 import nomeBranco from '../assets/ectas-nome-branco.png';
 import simboloBranco from '../assets/ectas-simbolo-branco.png';
 import simbolo from '../assets/ectas-simbolo.png';
-import { CORES } from '../app/tema';
+import { MARCA } from '../app/tema';
 
 /**
  * Logotipo da ECTAS a partir do arquivo oficial do site (ADR-015). As imagens têm o dobro do
  * tamanho exibido, para ficarem nítidas em telas de alta densidade.
  */
 
-/** Símbolo das três ondas, colorido, para fundos claros (ex.: tela de carregamento). */
+/**
+ * Símbolo das três ondas para a área de conteúdo (ex.: tela de carregamento): colorido no claro e
+ * branco no escuro (o manual não aplica a logo sem contraste).
+ */
 export function SimboloEctas(props: { readonly altura: number; readonly decorativo?: boolean }) {
+  const escuro = useTheme().palette.mode === 'dark';
   const largura = Math.round((props.altura * 283) / 192);
   return (
     <img
-      src={simbolo}
+      src={escuro ? simboloBranco : simbolo}
       width={largura}
       height={props.altura}
       alt={props.decorativo === true ? '' : 'ECTAS Saneamento'}
@@ -48,7 +53,7 @@ export function MarcaEctas(props: { readonly compacta?: boolean }) {
         <Typography
           component="span"
           sx={{
-            color: CORES.turquesa,
+            color: MARCA.turquesa,
             fontSize: props.compacta === true ? 11 : 12,
             fontWeight: 600,
             lineHeight: 1,

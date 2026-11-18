@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import react from '@vitejs/plugin-react';
@@ -13,8 +14,25 @@ const RAIZ = fileURLToPath(new URL('../..', import.meta.url));
  */
 const CONDICAO_FONTE = '@metas/source';
 
+/** Versão da web para "Sobre o sistema" (Configurações): commit e data do build. */
+function versaoWeb(): { commit: string; geradoEm: string } {
+  let commit = 'local';
+  try {
+    commit = execSync('git rev-parse --short HEAD', {
+      cwd: RAIZ,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    // Sem git (ex.: pacote copiado): fica "local".
+  }
+  return { commit, geradoEm: new Date().toISOString() };
+}
+
 export default defineConfig({
   plugins: [react()],
+  define: { __VERSAO_WEB__: JSON.stringify(versaoWeb()) },
   envDir: RAIZ,
   resolve: {
     conditions: [CONDICAO_FONTE, 'module', 'browser', 'development|production'],

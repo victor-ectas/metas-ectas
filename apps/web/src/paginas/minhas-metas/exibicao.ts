@@ -59,6 +59,8 @@ export interface ResumoNota {
   readonly total: string;
   /** Soma dos pesos dos blocos (100 num ciclo consistente). */
   readonly peso: string;
+  /** Pontos ÷ peso total, de 0 a 100 com 2 casas (altura da água no `NivelAgua`). */
+  readonly nivel: string;
   readonly blocos: readonly {
     readonly nome: string;
     readonly pontos: string;
@@ -89,7 +91,12 @@ export function resumoNota(notas: NotasGestor): ResumoNota {
     (soma, nota) => (nota === null ? soma : soma.plus(paraDecimal(nota.peso))),
     new Decimal(0),
   );
-  return { total: formatarNumero(notas.total), peso: formatarPeso(peso.toFixed()), blocos };
+  return {
+    total: formatarNumero(notas.total),
+    peso: formatarPeso(peso.toFixed()),
+    nivel: proporcao(notas.total, peso.toFixed()),
+    blocos,
+  };
 }
 
 function proporcao(pontos: string, peso: string): string {

@@ -16,7 +16,7 @@ export function SeloSituacao(props: { readonly ativo: boolean }) {
         borderRadius: 999,
         fontSize: 13,
         fontWeight: 600,
-        bgcolor: props.ativo ? CORES.turquesaClaro : '#EEF0F2',
+        bgcolor: props.ativo ? CORES.turquesaClaro : CORES.neutroFundo,
         color: props.ativo ? CORES.marinho : CORES.textoSecundario,
         whiteSpace: 'nowrap',
       }}
@@ -28,7 +28,7 @@ export function SeloSituacao(props: { readonly ativo: boolean }) {
           width: 8,
           height: 8,
           borderRadius: '50%',
-          bgcolor: props.ativo ? CORES.turquesa : '#9AA7B2',
+          bgcolor: props.ativo ? CORES.turquesa : CORES.neutroPonto,
         }}
       />
       {props.ativo ? 'Ativo' : 'Inativo'}

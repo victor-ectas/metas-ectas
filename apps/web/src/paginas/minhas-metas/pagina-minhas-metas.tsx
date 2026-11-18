@@ -8,7 +8,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import {
   Bloco,
   type MetaDoGestor,
@@ -21,8 +20,9 @@ import { Link as RouterLink, useSearchParams } from 'react-router';
 import { mensagemDeErro } from '../../api/erro-api';
 import { useResultadosGestor } from '../../api/resultados';
 import { useSessao } from '../../api/sessao';
-import { CORES } from '../../app/tema';
+import { CORES, transparente } from '../../app/tema';
 import { CabecalhoPagina, CabecalhoSecao } from '../../componentes/cabecalho-pagina';
+import { NivelAgua } from '../../componentes/nivel-agua';
 import { Pagina } from '../../componentes/pagina';
 import { SeletorCiclo } from '../../componentes/seletor-ciclo';
 import { SituacaoMeta } from '../../componentes/situacao-meta';
@@ -120,28 +120,38 @@ function CartaoNota(props: { readonly notas: NotasGestor; readonly congelada: bo
           alignItems: 'center',
         }}
       >
-        <Box>
-          <Typography id="titulo-nota" variant="body2" color="text.secondary">
-            {props.congelada ? 'Nota final' : 'Nota parcial'}
-          </Typography>
-          <Typography
-            component="p"
-            sx={{
-              color: CORES.marinho,
-              fontWeight: 700,
-              fontSize: { xs: '2.5rem', sm: '3rem' },
-              lineHeight: 1.1,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {resumo.total}
-            <Box
-              component="span"
-              sx={{ ml: 1, fontSize: '1rem', fontWeight: 600, color: CORES.textoSecundario }}
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2.5 }}>
+          <NivelAgua nivel={resumo.nivel} largura={112} />
+          <Box>
+            <Typography id="titulo-nota" variant="h2" sx={{ mb: 1 }}>
+              {props.congelada ? 'Nota final' : 'Nota parcial'}
+            </Typography>
+            <Typography
+              component="p"
+              sx={{
+                color: CORES.marinho,
+                fontWeight: 300,
+                fontSize: { xs: '2.75rem', sm: '3.25rem' },
+                lineHeight: 0.95,
+                letterSpacing: '-0.02em',
+                fontVariantNumeric: 'tabular-nums',
+              }}
             >
-              de {resumo.peso} pontos
-            </Box>
-          </Typography>
+              {resumo.total}
+              <Box
+                component="span"
+                sx={{
+                  ml: 1,
+                  fontSize: '0.9375rem',
+                  fontWeight: 500,
+                  letterSpacing: 0,
+                  color: CORES.textoSecundario,
+                }}
+              >
+                de {resumo.peso} pontos
+              </Box>
+            </Typography>
+          </Box>
         </Box>
         <Box
           component="dl"
@@ -180,7 +190,7 @@ function CartaoNota(props: { readonly notas: NotasGestor; readonly congelada: bo
 /** Quanto do bloco já foi conquistado. Decorativa: o número vem escrito acima. */
 function Barra(props: { readonly largura: string }) {
   return (
-    <Box aria-hidden sx={{ mt: 1, height: 6, borderRadius: 3, bgcolor: CORES.espuma }}>
+    <Box aria-hidden sx={{ mt: 1, height: 6, borderRadius: 3, bgcolor: CORES.turquesaClaro }}>
       <Box
         sx={{
           width: `${props.largura}%`,
@@ -246,7 +256,7 @@ function LinhaMeta({ meta }: { readonly meta: MetaDoGestor }) {
         bgcolor: CORES.branco,
         transitionProperty: 'border-color, background-color',
         transitionDuration: '150ms',
-        '&:hover': { borderColor: CORES.azul, bgcolor: alpha(CORES.turquesaClaro, 0.25) },
+        '&:hover': { borderColor: CORES.azul, bgcolor: transparente(CORES.turquesaClaro, 45) },
       }}
     >
       <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' }, minWidth: 0 }}>

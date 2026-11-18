@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router';
 
 import { PaginaCadastros } from '../paginas/cadastros/pagina-cadastros';
 import { PaginaCiclos } from '../paginas/ciclos/pagina-ciclos';
+import { Configuracoes } from '../paginas/configuracoes';
 import { EmConstrucao } from '../paginas/em-construcao';
 import { Inicio } from '../paginas/inicio';
 import { PaginaLancamentos } from '../paginas/lancamentos/pagina-lancamentos';
@@ -29,6 +30,7 @@ export function criarRotas(): RouteObject[] {
         { path: 'lancamentos', element: <PaginaLancamentos /> },
         { path: 'minhas-metas', element: <PaginaMinhasMetas /> },
         { path: 'minhas-metas/:id', element: <DetalheMeta /> },
+        { path: 'configuracoes', element: <Configuracoes /> },
         ...ITENS_MENU.filter((item) => item.passo !== null).map((item) => ({
           path: item.caminho.slice(1),
           element: <EmConstrucao item={item} />,

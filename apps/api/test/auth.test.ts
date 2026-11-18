@@ -194,20 +194,23 @@ describe('primeiro acesso (RF-02)', () => {
     expect(erro(r).detalhes).toEqual({ motivo: 'USUARIO_INATIVO' });
   });
 
-  it('primeiro acesso simultâneo (duas abas) cria um usuário só', async () => {
-    const email = emailTeste('duas-abas');
-    const token = await emitirToken({ oid: randomUUID(), preferred_username: email });
-    const respostas = await Promise.all(
-      [1, 2, 3].map(() => http().get('/api/v1/me').set('Authorization', `Bearer ${token}`)),
-    );
-    expect(
-      respostas.map((r) => [r.status, (r.body as { codigo?: string }).codigo ?? null]),
-    ).toEqual([
-      [200, null],
-      [200, null],
-      [200, null],
-    ]);
-    expect(await banco().usuario.count({ where: { email } })).toBe(1);
+  it('primeiro acesso simultâneo (várias abas) cria um usuário só e nenhuma aba é recusada', async () => {
+    // Corrida real (encontrada em 13/11/2026): uma aba cria o usuário entre a busca pelo oid e a
+    // busca pelo e-mail da outra, que achava o e-mail "ligado a outra conta" e respondia 403.
+    // Várias rodadas com várias abas, para a corrida aparecer.
+    for (const rodada of [1, 2, 3, 4, 5]) {
+      const email = emailTeste(`abas-${String(rodada)}`);
+      const token = await emitirToken({ oid: randomUUID(), preferred_username: email });
+      const respostas = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          http().get('/api/v1/me').set('Authorization', `Bearer ${token}`),
+        ),
+      );
+      expect(
+        respostas.map((r) => [r.status, (r.body as { codigo?: string }).codigo ?? null]),
+      ).toEqual(Array.from({ length: 8 }, () => [200, null]));
+      expect(await banco().usuario.count({ where: { email } })).toBe(1);
+    }
   });
 
   it('usuário pré-cadastrado pelo e-mail é ligado ao oid no primeiro login', async () => {

@@ -6,9 +6,17 @@ import { criarClienteApi } from '../api/cliente';
 import { ClienteApiContexto } from '../api/contexto';
 import { type Autenticacao, AutenticacaoContexto } from '../auth/autenticacao';
 import { ProvedorAvisos } from '../componentes/avisos';
-import { tema } from './tema';
+import { useModoTema, usePreferencias } from './preferencias';
+import { criarTema } from './tema';
 
+/**
+ * Tema claro ou escuro, pela escolha da pessoa nas Configurações (ou pelo aparelho, no modo
+ * automático), e o movimento reduzido.
+ */
 export function ProvedorTema(props: { readonly children: ReactNode }) {
+  const modo = useModoTema();
+  const { reduzirMovimento } = usePreferencias();
+  const tema = useMemo(() => criarTema(modo, reduzirMovimento), [modo, reduzirMovimento]);
   return (
     <ThemeProvider theme={tema}>
       <CssBaseline />

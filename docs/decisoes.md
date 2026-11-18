@@ -906,3 +906,62 @@ No meio do passo, às 13:16 de 13/11/2026, o WinGet atualizou o Node da máquina
 - O P23 (reabertura) grava o cancelamento em `cancelada_em`. A rotina já trata a reabertura cancelada.
 - O P30 (e-mails) implementa o `Notificador` e pode ler as pendências do registro `fechamento_mes`.
 - Uma tela de histórico (Fase 2 ou P26) pode listar os registros do sistema pela auditoria.
+
+## ADR-029 — Visual pelo Manual da Identidade Visual da ECTAS
+
+- **Data:** 13/11/2026
+- **Status:** Aceita. Ajusta o ADR-015, cuja identidade vinha do site e do logotipo.
+- **Pedido do desenvolvedor:** aproximar o sistema do brand guide oficial (`docs/BRAND GUIDE ECTAS.pdf`), com componentes modernos e elementos originais, sem perder o jeito ECTAS.
+
+**O que o manual define** (lido nas 22 páginas):
+
+- **Cores principais:** marinho #002B49 (Pantone 7463C), azul #0073A8 (7690C), turquesa #66D3CD (325C) e branco.
+- **Cores secundárias**, só de apoio: #1D1D1B, #606060 e #CCCCCC.
+- **Tipografia:** Montserrat (Thin, Regular, Semibold e Bold) e Gotham Rounded.
+- **Títulos de seção:** "| LOGOTIPO", com o fio vertical, maiúsculas espaçadas em peso leve e um fio turquesa sob os títulos principais.
+- **Elementos de apoio:**
+  - gotas d'água de vidro e respingos;
+  - três padronagens de apoio: ondas em S, o símbolo repetido e escamas;
+  - o símbolo usado como janela sobre uma foto (outdoor);
+  - o slogan em pilha, "NINGUÉM / CUIDA DA / **ÁGUA** / COMO NÓS";
+  - o selo circular;
+  - o recorte marinho e turquesa do uniforme.
+- **Regras do logotipo:** no mínimo 85 px de largura no digital, margem de 2× a largura do "E", e não deformar, girar, recolorir nem aplicar sem contraste.
+
+**Decisões.**
+
+- **Cores:** as oficiais. O marinho passa de #13314D para #002B49 e a turquesa de #59BDBC para #66D3CD. Texto em #1D1D1B, texto secundário em #606060, bordas num cinza claro puxado para a água (#D7E3E8).
+  - Contraste calculado: azul 5,2:1 e cinza 6,3:1 no branco; turquesa 8,2:1 sobre o marinho.
+  - A turquesa nunca é texto sobre fundo claro (1,8:1): só fio, indicador e decoração.
+- **Tipografia:**
+  - Montserrat em toda a interface, agora também no peso 300 (Light).
+  - Títulos de página e números grandes em Light, como os títulos do manual.
+  - O `h2` do tema é o título de seção do manual: maiúsculas espaçadas, só no CSS, então o texto e o nome acessível continuam em frase normal, com o fio turquesa à esquerda. Nos poucos lugares onde aparecia, o `h2` era título de seção ou de cartão.
+  - O `CabecalhoPagina` ganha o fio turquesa embaixo e a frase de apoio em azul.
+  - A Gotham Rounded é comercial e não foi incluída. Só entra se a ECTAS tiver a licença para web.
+- **Elemento principal, `NivelAgua`:** o símbolo como janela, enchendo de água até a nota.
+  - São duas camadas do arquivo oficial do símbolo, nada redesenhado nem recolorido: o vazio é o símbolo esmaecido, e a água é o símbolo nas cores oficiais, recortado até o nível por uma máscara com a linha d'água em ondas.
+  - A água sobe uma vez ao abrir a tela, e fica parada com `prefers-reduced-motion`.
+  - É decorativo: o número vem escrito ao lado.
+  - Aparece na nota parcial do Início do gestor e em Minhas metas. O `resumoNota` ganhou o campo `nivel` (pontos ÷ peso, calculado com `Decimal`).
+- **Padronagem de ondas em S** (`padronagemOndas`): fileiras de ondas soltas, deslocadas meia onda, em SVG como fundo CSS.
+  - Usada no pé do menu (turquesa a 14%, sumindo para cima) e na faixa de boas-vindas do Início (branco a 13%, sumindo para a esquerda).
+  - Substitui as ondas desenhadas para o ADR-015 (`ondas.tsx`, removido), que não existem no manual.
+- **Menu:**
+  - os títulos dos grupos ficam no formato "| GERAL";
+  - no pé, o slogan em pilha do outdoor, com ÁGUA em negrito turquesa, que o leitor de tela lê como uma frase só.
+- **Início:** a faixa azul ganha a padronagem e um fio turquesa de 4 px embaixo, o recorte de cor do uniforme; "Olá" em Light. O nome do mês pendente também vai em Light.
+- **Componentes:**
+  - botões arredondados, como os terminais do logotipo;
+  - cartões com borda fina e sem sombra, raio de 18 px (maior que os 10 px dos campos, marcando a hierarquia);
+  - diálogos com o mesmo raio dos cartões;
+  - campos com borda clara.
+
+**Fora desta mudança, por contenção:** o selo circular e as gotas de vidro. Ficam para uma tela que peça, como a de login ou um estado vazio.
+
+**Verificação.**
+
+- Fotos no Edge, antes e depois, em 1440 e 360 px:
+  - Início do gestor e do Administrador, Minhas metas, detalhe da meta, Lançamentos, Metas, Ciclos e o editor;
+  - sem rolagem horizontal e sem erros no console.
+- `pnpm verify` com 1.037 testes, inclusive os 153 da web, e `pnpm e2e` com 4 de 4.

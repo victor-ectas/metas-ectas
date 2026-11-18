@@ -4,7 +4,7 @@ import { Perfil, type UsuarioSessao } from '@metas/tipos';
  * Itens do menu (especificação 10.2, Fase 1). O menu só esconde o que o perfil não usa: quem
  * decide a permissão é a API (CLAUDE.md 2.2).
  */
-export type Secao = 'GERAL' | 'ADMINISTRACAO';
+export type Secao = 'GERAL' | 'ADMINISTRACAO' | 'CONTA';
 
 export interface ItemMenu {
   readonly caminho: string;
@@ -84,11 +84,20 @@ export const ITENS_MENU: readonly ItemMenu[] = [
     perfis: [ADMIN],
     passo: null,
   },
+  // Aparência deste aparelho e dados da conta: todos, inclusive quem ainda está inativo (ADR-030).
+  {
+    caminho: '/configuracoes',
+    rotulo: 'Configurações',
+    secao: 'CONTA',
+    perfis: null,
+    passo: null,
+  },
 ];
 
 export const ROTULO_SECAO: Readonly<Record<Secao, string>> = {
   GERAL: 'Geral',
   ADMINISTRACAO: 'Administração',
+  CONTA: 'Conta',
 };
 
 export const ROTULO_PERFIL: Readonly<Record<Perfil, string>> = {
@@ -98,7 +107,7 @@ export const ROTULO_PERFIL: Readonly<Record<Perfil, string>> = {
   LEITOR: 'Leitor',
 };
 
-/** Usuário inativo só vê o Início (a API só lhe responde `/me`, ADR-013). */
+/** Usuário inativo só vê o Início e as Configurações (a API só lhe responde `/me`, ADR-013). */
 export function itensDoUsuario(usuario: UsuarioSessao): ItemMenu[] {
   return ITENS_MENU.filter(
     (item) => item.perfis === null || (usuario.ativo && item.perfis.includes(usuario.perfil)),

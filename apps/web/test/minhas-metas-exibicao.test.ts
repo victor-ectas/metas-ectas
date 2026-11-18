@@ -42,6 +42,8 @@ describe('pontos e nota (RN-22 a RN-31)', () => {
     expect(resumo).toEqual({
       total: '29,99',
       peso: '35',
+      // 29,990741 ÷ 35 = 85,69%: altura da água no símbolo.
+      nivel: '85.69',
       blocos: [
         { nome: 'Corporativo', pontos: '12,00', peso: '15', largura: '80.00' },
         { nome: 'Departamental', pontos: '17,99', peso: '20', largura: '89.95' },
@@ -57,6 +59,7 @@ describe('pontos e nota (RN-22 a RN-31)', () => {
       calculadoEm: null,
     });
     expect(resumo.total).toBe('62,35');
+    expect(resumo.nivel).toBe('62.35');
     expect(resumo.blocos.map((b) => b.nome)).toEqual(['Departamental']);
   });
 

@@ -26,11 +26,11 @@ import { mensagemDeErro } from '../api/erro-api';
 import { useSessao } from '../api/sessao';
 import { useAutenticacao } from '../auth/autenticacao';
 import { MarcaEctas } from '../componentes/marca';
-import { OndasMenu } from '../componentes/ondas';
+import { padronagemOndas } from '../componentes/padronagem';
 import { TelaCarregando, TelaErro } from '../componentes/telas-estado';
 import { type ItemMenu, itensDoUsuario, ROTULO_PERFIL, ROTULO_SECAO, type Secao } from './menu';
 import { ICONES } from './icones';
-import { CORES, LARGURA_MENU } from './tema';
+import { CORES, ESTILO_TITULO_SECAO, LARGURA_MENU, MARCA, transparente } from './tema';
 
 /**
  * Seletor do usuário simulado: só existe no servidor de desenvolvimento. No build de produção
@@ -44,7 +44,7 @@ const SeletorUsuarioDev = import.meta.env.DEV
     )
   : null;
 
-const SECOES: readonly Secao[] = ['GERAL', 'ADMINISTRACAO'];
+const SECOES: readonly Secao[] = ['GERAL', 'ADMINISTRACAO', 'CONTA'];
 
 /** Altura da barra superior (padrão do MUI no desktop). */
 const ALTURA_BARRA = 64;
@@ -67,16 +67,16 @@ const estiloItem = {
   px: 1.5,
   borderRadius: 2,
   position: 'relative',
-  color: alpha(CORES.branco, 0.86),
+  color: alpha(MARCA.branco, 0.86),
   transitionProperty: 'background-color, color',
-  '& .MuiListItemIcon-root': { minWidth: 38, color: alpha(CORES.turquesa, 0.9) },
-  '&:hover': { bgcolor: alpha(CORES.branco, 0.07), color: CORES.branco },
+  '& .MuiListItemIcon-root': { minWidth: 38, color: alpha(MARCA.turquesa, 0.9) },
+  '&:hover': { bgcolor: alpha(MARCA.branco, 0.07), color: MARCA.branco },
   // Item da página atual: "nível de água" turquesa à esquerda e fundo levemente aceso.
   '&.Mui-selected': {
-    bgcolor: alpha(CORES.turquesa, 0.16),
-    color: CORES.branco,
+    bgcolor: alpha(MARCA.turquesa, 0.16),
+    color: MARCA.branco,
     '& .MuiListItemText-primary': { fontWeight: 600 },
-    '& .MuiListItemIcon-root': { color: CORES.turquesa },
+    '& .MuiListItemIcon-root': { color: MARCA.turquesa },
     '&::before': {
       content: '""',
       position: 'absolute',
@@ -85,10 +85,10 @@ const estiloItem = {
       bottom: 10,
       width: 4,
       borderRadius: 2,
-      bgcolor: CORES.turquesa,
+      bgcolor: MARCA.turquesa,
     },
   },
-  '&.Mui-selected:hover': { bgcolor: alpha(CORES.turquesa, 0.24) },
+  '&.Mui-selected:hover': { bgcolor: alpha(MARCA.turquesa, 0.24) },
 } as const;
 
 function Menu(props: { readonly usuario: UsuarioSessao; readonly aoNavegar: () => void }) {
@@ -108,13 +108,13 @@ function Menu(props: { readonly usuario: UsuarioSessao; readonly aoNavegar: () =
                 component="div"
                 disableSticky
                 sx={{
+                  ...ESTILO_TITULO_SECAO,
                   bgcolor: 'transparent',
-                  color: CORES.turquesa,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  letterSpacing: '0.04em',
+                  color: alpha(MARCA.branco, 0.72),
+                  fontSize: 11,
                   lineHeight: '32px',
                   px: 3,
+                  pt: 1,
                 }}
               >
                 {ROTULO_SECAO[secao]}
@@ -146,12 +146,45 @@ function Menu(props: { readonly usuario: UsuarioSessao; readonly aoNavegar: () =
   );
 }
 
-/** Painel marinho do menu: logotipo, itens e as ondas do logotipo no pé. */
+/**
+ * Slogan da marca composto em pilha, como no outdoor do manual: "NINGUÉM / CUIDA DA / ÁGUA /
+ * COMO NÓS", com ÁGUA em negrito. Para leitores de tela é uma frase só.
+ */
+function Slogan() {
+  const linha = { display: 'block' } as const;
+  return (
+    <Typography
+      sx={{
+        color: MARCA.branco,
+        fontSize: 13,
+        fontWeight: 300,
+        lineHeight: 1.25,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+      }}
+    >
+      <Box component="span" sx={linha}>
+        Ninguém
+      </Box>{' '}
+      <Box component="span" sx={linha}>
+        cuida da
+      </Box>{' '}
+      <Box component="strong" sx={{ ...linha, fontWeight: 700, color: MARCA.turquesa }}>
+        água
+      </Box>{' '}
+      <Box component="span" sx={linha}>
+        como nós
+      </Box>
+    </Typography>
+  );
+}
+
+/** Painel marinho do menu: logotipo, itens e, no pé, a padronagem de ondas com o slogan. */
 function PainelMenu(props: { readonly usuario: UsuarioSessao; readonly aoNavegar: () => void }) {
   return (
     <Box
       className="fundo-escuro"
-      sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: CORES.marinho }}
+      sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: MARCA.marinho }}
     >
       <Box
         sx={{ px: 3, height: ALTURA_BARRA, display: 'flex', alignItems: 'center', flexShrink: 0 }}
@@ -165,24 +198,26 @@ function PainelMenu(props: { readonly usuario: UsuarioSessao; readonly aoNavegar
         sx={{
           position: 'relative',
           flexShrink: 0,
-          // Em telas baixas as ondas dariam lugar ao menu.
+          px: 3,
+          pt: 6,
+          pb: 3,
+          // Padronagem do manual, sumindo para cima (máscara), atrás do slogan.
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            ...padronagemOndas(alpha(MARCA.turquesa, 0.14)),
+            maskImage: 'linear-gradient(to top, #000 15%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to top, #000 15%, transparent 100%)',
+            pointerEvents: 'none',
+          },
+          // Em telas baixas o pé dá lugar ao menu.
           '@media (max-height: 640px)': { display: 'none' },
         }}
       >
-        <OndasMenu />
-        <Typography
-          sx={{
-            position: 'absolute',
-            left: 24,
-            right: 16,
-            bottom: 10,
-            color: alpha(CORES.branco, 0.78),
-            fontSize: 11,
-            fontWeight: 500,
-          }}
-        >
-          Ninguém cuida da ÁGUA como nós.
-        </Typography>
+        <Box sx={{ position: 'relative' }}>
+          <Slogan />
+        </Box>
       </Box>
     </Box>
   );
@@ -227,8 +262,8 @@ export function Layout() {
         sx={{
           width: comMenuFixo ? `calc(100% - ${String(LARGURA_MENU)}px)` : '100%',
           ml: comMenuFixo ? `${String(LARGURA_MENU)}px` : 0,
-          bgcolor: desktop ? alpha(CORES.branco, 0.92) : CORES.marinho,
-          color: desktop ? CORES.marinho : CORES.branco,
+          bgcolor: desktop ? transparente(CORES.branco, 92) : MARCA.marinho,
+          color: desktop ? CORES.marinho : MARCA.branco,
           backdropFilter: desktop ? 'blur(8px)' : undefined,
           borderBottom: desktop ? `1px solid ${CORES.borda}` : 'none',
           pt: 'env(safe-area-inset-top)',
@@ -305,7 +340,7 @@ export function Layout() {
                 width: LARGURA_MENU,
                 boxSizing: 'border-box',
                 border: 'none',
-                bgcolor: CORES.marinho,
+                bgcolor: MARCA.marinho,
               },
             }}
           >
@@ -321,7 +356,7 @@ export function Layout() {
               '& .MuiDrawer-paper': {
                 width: LARGURA_MENU,
                 maxWidth: '85vw',
-                bgcolor: CORES.marinho,
+                bgcolor: MARCA.marinho,
                 pt: 'env(safe-area-inset-top)',
               },
             }}

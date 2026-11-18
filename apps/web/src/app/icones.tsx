@@ -7,6 +7,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import FunctionsIcon from '@mui/icons-material/Functions';
 import HomeIcon from '@mui/icons-material/Home';
 import PeopleIcon from '@mui/icons-material/People';
+import SettingsIcon from '@mui/icons-material/Settings';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import type { ReactElement } from 'react';
@@ -24,4 +25,5 @@ export const ICONES: Readonly<Record<string, ReactElement>> = {
   '/ciclos': <AccountTreeIcon />,
   '/fechamento': <EventAvailableIcon />,
   '/cadastros': <PeopleIcon />,
+  '/configuracoes': <SettingsIcon />,
 };

@@ -52,6 +52,12 @@ export class AcessoService {
       select: { id: true, entraOid: true },
     });
     if (preCadastrado !== null) {
+      // Primeiro acesso em várias abas: outra requisição criou (ou ligou) este usuário com o mesmo
+      // oid entre a busca pelo oid e esta. É a própria pessoa, não outra conta.
+      if (preCadastrado.entraOid === identidade.oid) {
+        const mesmo = await this.porOid(identidade.oid);
+        if (mesmo !== null) return mesmo;
+      }
       if (preCadastrado.entraOid !== null) {
         // Mesmo e-mail, outra conta Microsoft (ex.: conta recriada). Só o Administrador resolve.
         this.logger.warn(
